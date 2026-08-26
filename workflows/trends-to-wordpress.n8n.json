@@ -1,0 +1,257 @@
+{
+  "name": "Trends → News → Supabase → Claude → WordPress",
+  "nodes": [
+    {
+      "id": "schedule-trigger",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0],
+      "parameters": {
+        "rule": {
+          "interval": [
+            { "field": "days", "daysInterval": 1, "triggerAtHour": 3, "triggerAtMinute": 0 }
+          ]
+        }
+      }
+    },
+    {
+      "id": "fetch-trends-rss",
+      "name": "Fetch Trends RSS",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [260, 0],
+      "parameters": {
+        "method": "GET",
+        "url": "https://trends.google.com/trending/rss?geo=KR&hl=ko&hours=48",
+        "options": {
+          "response": { "response": { "responseFormat": "text" } }
+        }
+      }
+    },
+    {
+      "id": "xml-to-json",
+      "name": "XML to JSON",
+      "type": "n8n-nodes-base.xml",
+      "typeVersion": 1,
+      "position": [520, 0],
+      "parameters": {
+        "dataPropertyName": "data"
+      }
+    },
+    {
+      "id": "extract-top20",
+      "name": "Extract Top 20",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [780, 0],
+      "parameters": {
+        "jsCode": "const root = $input.first().json.rss.channel;\nconst channel = Array.isArray(root) ? root[0] : root;\nconst rawItems = channel.item;\nconst items = Array.isArray(rawItems) ? rawItems : [rawItems];\nconst trendDate = new Date().toISOString().slice(0, 10);\n\nconst pick = (obj, key) => {\n  const v = obj?.[key];\n  return Array.isArray(v) ? v[0] : v;\n};\n\nconst results = items.slice(0, 20).map((item, idx) => ({\n  json: {\n    rank: idx + 1,\n    keyword: pick(item, 'title') || '',\n    approx_traffic: pick(item, 'ht:approx_traffic') || null,\n    trend_link: pick(item, 'link') || '',\n    region: 'KR',\n    trend_date: trendDate\n  }\n}));\n\nreturn results;\n\n// NOTE: field names above (e.g. 'ht:approx_traffic') depend on how the\n// XML node namespaces tags in your n8n version. If approx_traffic comes\n// back null for every item, curl the RSS feed directly and inspect the\n// raw XML/JSON to confirm the actual key, then adjust the `pick()` calls."
+      }
+    },
+    {
+      "id": "insert-keyword",
+      "name": "Insert Keyword",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1040, 0],
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "resource": "row",
+        "operation": "create",
+        "tableId": "trending_keywords",
+        "dataToSend": "autoMapInputData"
+      },
+      "credentials": {
+        "supabaseApi": { "id": "REPLACE_WITH_YOUR_SUPABASE_CREDENTIAL_ID", "name": "Supabase account" }
+      }
+    },
+    {
+      "id": "loop-keywords",
+      "name": "Loop Keywords",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [1300, 0],
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      }
+    },
+    {
+      "id": "search-naver-news",
+      "name": "Search Naver News",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1560, -120],
+      "parameters": {
+        "method": "GET",
+        "url": "=https://openapi.naver.com/v1/search/news.json?query={{ encodeURIComponent($json.keyword) }}&display=5&sort=sim",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "X-Naver-Client-Id", "value": "REPLACE_WITH_YOUR_CLIENT_ID" },
+            { "name": "X-Naver-Client-Secret", "value": "REPLACE_WITH_YOUR_CLIENT_SECRET" }
+          ]
+        }
+      }
+    },
+    {
+      "id": "parse-split-articles",
+      "name": "Parse & Split Articles",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1820, -120],
+      "parameters": {
+        "jsCode": "const keywordRow = $('Insert Keyword').item.json;\nconst response = $input.first().json;\nconst articles = response.items || [];\n\nreturn articles.map(a => ({\n  json: {\n    keyword_id: keywordRow.id,\n    title: (a.title || '').replace(/<[^>]+>/g, ''),\n    url: a.originallink || a.link,\n    source: 'naver_news',\n    published_at: a.pubDate\n  }\n}));"
+      }
+    },
+    {
+      "id": "insert-news",
+      "name": "Insert News",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [2080, -120],
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "resource": "row",
+        "operation": "create",
+        "tableId": "keyword_news",
+        "dataToSend": "autoMapInputData"
+      },
+      "credentials": {
+        "supabaseApi": { "id": "REPLACE_WITH_YOUR_SUPABASE_CREDENTIAL_ID", "name": "Supabase account" }
+      }
+    },
+    {
+      "id": "aggregate-news",
+      "name": "Aggregate News",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [2340, -120],
+      "parameters": {
+        "aggregate": "aggregateIndividualFields",
+        "fieldsToAggregate": {
+          "fieldToAggregate": [
+            { "fieldToAggregate": "title", "renameField": false },
+            { "fieldToAggregate": "url", "renameField": false }
+          ]
+        }
+      }
+    },
+    {
+      "id": "build-claude-prompt",
+      "name": "Build Claude Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2600, -120],
+      "parameters": {
+        "jsCode": "const keywordRow = $('Insert Keyword').item.json;\nconst agg = $input.first().json;\nconst titles = agg.title || [];\nconst urls = agg.url || [];\nconst newsLines = titles.map((t, i) => `- ${t} (${urls[i] || ''})`).join('\\n') || '(관련 뉴스 없음)';\n\nreturn [{\n  json: {\n    keyword: keywordRow.keyword,\n    trend_link: keywordRow.trend_link,\n    news_list: newsLines\n  }\n}];"
+      }
+    },
+    {
+      "id": "claude-draft",
+      "name": "Claude Draft",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2860, -120],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "anthropic-version", "value": "2023-06-01" },
+            { "name": "content-type", "value": "application/json" }
+          ]
+        },
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: \"claude-sonnet-5\", max_tokens: 2000, tools: [{ name: \"blog_draft\", description: \"트렌드 키워드를 요약한 블로그 초안 생성\", input_schema: { type: \"object\", properties: { title: { type: \"string\" }, body_html: { type: \"string\" }, tags: { type: \"array\", items: { type: \"string\" } }, meta_description: { type: \"string\" } }, required: [\"title\", \"body_html\", \"tags\", \"meta_description\"] } }], tool_choice: { type: \"tool\", name: \"blog_draft\" }, messages: [{ role: \"user\", content: `지금 화제인 키워드: ${$json.keyword}\\n\\n관련 뉴스:\\n${$json.news_list}\\n\\nGoogle Trends 원본 링크: ${$json.trend_link}\\n\\n위 내용을 바탕으로 이 키워드가 왜 화제인지 분석하는 한국어 블로그 글을 작성해줘. body_html 끝에는 참고한 뉴스 출처 링크를 명시해줘.` }] }) }}"
+      },
+      "credentials": {
+        "httpHeaderAuth": { "id": "REPLACE_WITH_YOUR_ANTHROPIC_CREDENTIAL_ID", "name": "Anthropic x-api-key" }
+      }
+    },
+    {
+      "id": "parse-claude-response",
+      "name": "Parse Claude Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3120, -120],
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nconst toolUse = (response.content || []).find(c => c.type === 'tool_use');\nif (!toolUse) {\n  throw new Error('Claude 응답에 tool_use가 없습니다: ' + JSON.stringify(response));\n}\nreturn [{ json: toolUse.input }];"
+      }
+    },
+    {
+      "id": "publish-wordpress",
+      "name": "Publish WordPress",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3380, -120],
+      "parameters": {
+        "method": "POST",
+        "url": "https://yourdomain.com/wp-json/wp/v2/posts",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ title: $json.title, content: $json.body_html, excerpt: $json.meta_description, status: \"draft\" }) }}"
+      },
+      "credentials": {
+        "httpBasicAuth": { "id": "REPLACE_WITH_YOUR_WORDPRESS_CREDENTIAL_ID", "name": "WordPress Application Password" }
+      }
+    },
+    {
+      "id": "mark-published",
+      "name": "Mark Published",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [3640, -120],
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "resource": "row",
+        "operation": "update",
+        "tableId": "trending_keywords",
+        "filterType": "manual",
+        "matchingColumns": ["id"],
+        "fieldsUi": {
+          "fieldValues": [
+            { "fieldId": "id", "fieldValue": "={{ $('Insert Keyword').item.json.id }}" },
+            { "fieldId": "wp_post_id", "fieldValue": "={{ $json.id }}" },
+            { "fieldId": "posted_at", "fieldValue": "={{ $now.toISO() }}" }
+          ]
+        }
+      },
+      "credentials": {
+        "supabaseApi": { "id": "REPLACE_WITH_YOUR_SUPABASE_CREDENTIAL_ID", "name": "Supabase account" }
+      }
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": { "main": [[{ "node": "Fetch Trends RSS", "type": "main", "index": 0 }]] },
+    "Fetch Trends RSS": { "main": [[{ "node": "XML to JSON", "type": "main", "index": 0 }]] },
+    "XML to JSON": { "main": [[{ "node": "Extract Top 20", "type": "main", "index": 0 }]] },
+    "Extract Top 20": { "main": [[{ "node": "Insert Keyword", "type": "main", "index": 0 }]] },
+    "Insert Keyword": { "main": [[{ "node": "Loop Keywords", "type": "main", "index": 0 }]] },
+    "Loop Keywords": {
+      "main": [
+        [{ "node": "Search Naver News", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Search Naver News": { "main": [[{ "node": "Parse & Split Articles", "type": "main", "index": 0 }]] },
+    "Parse & Split Articles": { "main": [[{ "node": "Insert News", "type": "main", "index": 0 }]] },
+    "Insert News": { "main": [[{ "node": "Aggregate News", "type": "main", "index": 0 }]] },
+    "Aggregate News": { "main": [[{ "node": "Build Claude Prompt", "type": "main", "index": 0 }]] },
+    "Build Claude Prompt": { "main": [[{ "node": "Claude Draft", "type": "main", "index": 0 }]] },
+    "Claude Draft": { "main": [[{ "node": "Parse Claude Response", "type": "main", "index": 0 }]] },
+    "Parse Claude Response": { "main": [[{ "node": "Publish WordPress", "type": "main", "index": 0 }]] },
+    "Publish WordPress": { "main": [[{ "node": "Mark Published", "type": "main", "index": 0 }]] },
+    "Mark Published": { "main": [[{ "node": "Loop Keywords", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "pinData": {}
+}
