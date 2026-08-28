@@ -95,6 +95,16 @@
       }
     },
     {
+      "id": "keyword-approval-attempt",
+      "name": "Keyword Approval Attempt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1690, 250],
+      "parameters": {
+        "jsCode": "// Loop entry point: reached either from Pick Next Keyword (attempt starts at 1)\n// or from IF Approval Retry looping back (attempt already incremented). Normalizes\n// the shape either way so Send Telegram / Wait / Evaluate can rely on a stable node name.\nconst input = $input.first().json;\nreturn [{\n  json: {\n    id: input.id,\n    keyword: input.keyword,\n    approx_traffic: input.approx_traffic,\n    trend_link: input.trend_link,\n    attempt: input.attempt || 1\n  }\n}];"
+      }
+    },
+    {
       "id": "telegram-keyword-approval",
       "name": "Send Telegram Keyword Approval",
       "type": "n8n-nodes-base.telegram",
@@ -102,7 +112,7 @@
       "position": [1820, 0],
       "parameters": {
         "chatId": "REPLACE_WITH_YOUR_TELEGRAM_CHAT_ID",
-        "text": "=오늘의 트렌드 키워드 후보: *{{ $json.keyword }}*\n(검색량: {{ $json.approx_traffic || '정보없음' }})\n\n이 키워드로 포스팅을 진행할까요?",
+        "text": "=오늘의 트렌드 키워드 후보: *{{ $json.keyword }}*\n(검색량: {{ $json.approx_traffic || '정보없음' }})\n\n이 키워드로 포스팅을 진행할까요?\n\n({{ $json.attempt }}/5번째 요청 · {{ $json.attempt === 1 ? 3 : 5 }}분 내 미응답 시 재전송, 5회째까지 무응답이면 자동 승인됩니다)",
         "replyMarkup": "inlineKeyboard",
         "inlineKeyboard": {
           "rows": [
@@ -123,7 +133,7 @@
       "credentials": {
         "telegramApi": { "id": "REPLACE_WITH_YOUR_TELEGRAM_CREDENTIAL_ID", "name": "Telegram Bot" }
       },
-      "notes": "VERIFY IN UI: this inlineKeyboard structure matches n8n's Telegram node UI-driven format, but field names can still shift between versions. If buttons don't render after import, open Reply Markup and confirm the two buttons + their URL values are intact."
+      "notes": "VERIFY IN UI: this inlineKeyboard structure matches n8n's Telegram node UI-driven format, but field names can still shift between versions. If buttons don't render after import, open Reply Markup and confirm the two buttons + their URL values are intact. NOTE: once a retry fires, only the LATEST message's buttons are valid -- earlier messages' buttons point to a superseded wait instance."
     },
     {
       "id": "wait-keyword-approval",
@@ -132,28 +142,66 @@
       "typeVersion": 1.1,
       "position": [2080, 0],
       "webhookId": "wait-keyword-approval-hook",
-      "parameters": { "resume": "webhook", "options": {} }
+      "parameters": {
+        "resume": "webhook",
+        "limitWaitTime": true,
+        "limitType": "afterTimeInterval",
+        "resumeAmount": "={{ $('Keyword Approval Attempt').item.json.attempt === 1 ? 3 : 5 }}",
+        "resumeUnit": "minutes",
+        "options": {}
+      },
+      "notes": "VERIFY IN UI: open this node, confirm Resume=On Webhook Call, then toggle 'Limit Wait Time' ON, Limit Type=After Time Interval, and check the Amount field accepts the expression above (switch it to expression/fx mode if it was imported as a plain number)."
     },
     {
-      "id": "if-keyword-approved",
-      "name": "IF Keyword Approved",
-      "type": "n8n-nodes-base.if",
+      "id": "evaluate-keyword-approval",
+      "name": "Evaluate Keyword Approval",
+      "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [2340, 0],
+      "parameters": {
+        "jsCode": "// $json here is either the Telegram webhook resume payload (button click) or,\n// if Wait's time limit fired first, a passthrough of whatever fed the Wait node --\n// so attempt/keyword data always comes from the named Keyword Approval Attempt node.\nconst attemptData = $('Keyword Approval Attempt').item.json;\nconst hasDecision = $json.query && typeof $json.query.decision !== 'undefined';\n\nif (hasDecision) {\n  return [{\n    json: {\n      ...attemptData,\n      outcome: $json.query.decision === 'approve' ? 'proceed' : 'rejected'\n    }\n  }];\n}\n\nconst MAX_ATTEMPTS = 5;\nif (attemptData.attempt >= MAX_ATTEMPTS) {\n  return [{ json: { ...attemptData, outcome: 'proceed', auto_approved: true } }];\n}\nreturn [{ json: { ...attemptData, attempt: attemptData.attempt + 1, outcome: 'retry' } }];"
+      }
+    },
+    {
+      "id": "if-approval-proceed",
+      "name": "IF Approval Proceed",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2600, 0],
       "parameters": {
         "conditions": {
           "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
           "conditions": [
             {
-              "leftValue": "={{ $json.query.decision }}",
-              "rightValue": "approve",
+              "leftValue": "={{ $json.outcome }}",
+              "rightValue": "proceed",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "if-approval-retry",
+      "name": "IF Approval Retry",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2600, 200],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.outcome }}",
+              "rightValue": "retry",
               "operator": { "type": "string", "operation": "equals" }
             }
           ],
           "combinator": "and"
         }
       },
-      "notes": "VERIFY IN UI: confirm the resumed data actually lands at $json.query.decision for your n8n version."
+      "notes": "true -> loops back to Keyword Approval Attempt with attempt+1. false here means outcome was 'rejected' -- ends silently, same as before."
     },
     {
       "id": "telegram-trigger-manual",
@@ -311,6 +359,16 @@
       }
     },
     {
+      "id": "news-review-attempt",
+      "name": "News Review Attempt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [4290, 150],
+      "parameters": {
+        "jsCode": "// Loop entry point: reached either from Build News Summary (attempt starts at 1)\n// or from IF News Retry looping back (attempt already incremented).\nconst input = $input.first().json;\nreturn [{\n  json: {\n    keyword: input.keyword,\n    trend_link: input.trend_link,\n    news_list: input.news_list,\n    attempt: input.attempt || 1\n  }\n}];"
+      }
+    },
+    {
       "id": "telegram-news-review",
       "name": "Send Telegram News Review",
       "type": "n8n-nodes-base.telegram",
@@ -318,7 +376,7 @@
       "position": [4420, 150],
       "parameters": {
         "chatId": "REPLACE_WITH_YOUR_TELEGRAM_CHAT_ID",
-        "text": "=📰 *{{ $json.keyword }}* 관련 수집된 뉴스:\n\n{{ $json.news_list }}\n\n이 뉴스로 초안을 작성할까요?",
+        "text": "=📰 *{{ $json.keyword }}* 관련 수집된 뉴스:\n\n{{ $json.news_list }}\n\n이 뉴스로 초안을 작성할까요?\n\n({{ $json.attempt }}/5번째 요청 · {{ $json.attempt === 1 ? 3 : 5 }}분 내 미응답 시 재전송, 5회째까지 무응답이면 자동 승인됩니다)",
         "replyMarkup": "inlineKeyboard",
         "inlineKeyboard": {
           "rows": [
@@ -339,7 +397,7 @@
       "credentials": {
         "telegramApi": { "id": "REPLACE_WITH_YOUR_TELEGRAM_CREDENTIAL_ID", "name": "Telegram Bot" }
       },
-      "notes": "Same inlineKeyboard structure as the other approval node -- verify buttons survive import."
+      "notes": "Same inlineKeyboard structure as the other approval node -- verify buttons survive import. Once a retry fires, only the LATEST message's buttons are valid."
     },
     {
       "id": "wait-news-review",
@@ -348,27 +406,66 @@
       "typeVersion": 1.1,
       "position": [4680, 150],
       "webhookId": "wait-news-review-hook",
-      "parameters": { "resume": "webhook", "options": {} }
+      "parameters": {
+        "resume": "webhook",
+        "limitWaitTime": true,
+        "limitType": "afterTimeInterval",
+        "resumeAmount": "={{ $('News Review Attempt').item.json.attempt === 1 ? 3 : 5 }}",
+        "resumeUnit": "minutes",
+        "options": {}
+      },
+      "notes": "VERIFY IN UI: same as Wait Keyword Approval -- confirm Limit Wait Time toggle + expression-mode Amount field survive import."
     },
     {
-      "id": "if-news-approved",
-      "name": "IF News Approved",
-      "type": "n8n-nodes-base.if",
+      "id": "evaluate-news-review",
+      "name": "Evaluate News Review",
+      "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [4940, 150],
+      "parameters": {
+        "jsCode": "const attemptData = $('News Review Attempt').item.json;\nconst hasDecision = $json.query && typeof $json.query.decision !== 'undefined';\n\nif (hasDecision) {\n  return [{\n    json: {\n      ...attemptData,\n      outcome: $json.query.decision === 'approve' ? 'proceed' : 'rejected'\n    }\n  }];\n}\n\nconst MAX_ATTEMPTS = 5;\nif (attemptData.attempt >= MAX_ATTEMPTS) {\n  return [{ json: { ...attemptData, outcome: 'proceed', auto_approved: true } }];\n}\nreturn [{ json: { ...attemptData, attempt: attemptData.attempt + 1, outcome: 'retry' } }];"
+      }
+    },
+    {
+      "id": "if-news-proceed",
+      "name": "IF News Proceed",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [5200, 150],
       "parameters": {
         "conditions": {
           "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
           "conditions": [
             {
-              "leftValue": "={{ $json.query.decision }}",
-              "rightValue": "approve",
+              "leftValue": "={{ $json.outcome }}",
+              "rightValue": "proceed",
               "operator": { "type": "string", "operation": "equals" }
             }
           ],
           "combinator": "and"
         }
       }
+    },
+    {
+      "id": "if-news-retry",
+      "name": "IF News Retry",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [5200, 350],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.outcome }}",
+              "rightValue": "retry",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "notes": "true -> loops back to News Review Attempt with attempt+1. false means outcome was 'rejected' -> Telegram: News Review Rejected."
     },
     {
       "id": "telegram-news-rejected",
@@ -504,12 +601,20 @@
     "Extract Top 20": { "main": [[{ "node": "Insert Keywords History", "type": "main", "index": 0 }]] },
     "Insert Keywords History": { "main": [[{ "node": "Get Recently Posted", "type": "main", "index": 0 }]] },
     "Get Recently Posted": { "main": [[{ "node": "Pick Next Keyword", "type": "main", "index": 0 }]] },
-    "Pick Next Keyword": { "main": [[{ "node": "Send Telegram Keyword Approval", "type": "main", "index": 0 }]] },
+    "Pick Next Keyword": { "main": [[{ "node": "Keyword Approval Attempt", "type": "main", "index": 0 }]] },
+    "Keyword Approval Attempt": { "main": [[{ "node": "Send Telegram Keyword Approval", "type": "main", "index": 0 }]] },
     "Send Telegram Keyword Approval": { "main": [[{ "node": "Wait Keyword Approval", "type": "main", "index": 0 }]] },
-    "Wait Keyword Approval": { "main": [[{ "node": "IF Keyword Approved", "type": "main", "index": 0 }]] },
-    "IF Keyword Approved": {
+    "Wait Keyword Approval": { "main": [[{ "node": "Evaluate Keyword Approval", "type": "main", "index": 0 }]] },
+    "Evaluate Keyword Approval": { "main": [[{ "node": "IF Approval Proceed", "type": "main", "index": 0 }]] },
+    "IF Approval Proceed": {
       "main": [
         [{ "node": "Keyword Context", "type": "main", "index": 0 }],
+        [{ "node": "IF Approval Retry", "type": "main", "index": 0 }]
+      ]
+    },
+    "IF Approval Retry": {
+      "main": [
+        [{ "node": "Keyword Approval Attempt", "type": "main", "index": 0 }],
         []
       ]
     },
@@ -527,12 +632,20 @@
         [{ "node": "Telegram: No Recent News", "type": "main", "index": 0 }]
       ]
     },
-    "Build News Summary": { "main": [[{ "node": "Send Telegram News Review", "type": "main", "index": 0 }]] },
+    "Build News Summary": { "main": [[{ "node": "News Review Attempt", "type": "main", "index": 0 }]] },
+    "News Review Attempt": { "main": [[{ "node": "Send Telegram News Review", "type": "main", "index": 0 }]] },
     "Send Telegram News Review": { "main": [[{ "node": "Wait News Review", "type": "main", "index": 0 }]] },
-    "Wait News Review": { "main": [[{ "node": "IF News Approved", "type": "main", "index": 0 }]] },
-    "IF News Approved": {
+    "Wait News Review": { "main": [[{ "node": "Evaluate News Review", "type": "main", "index": 0 }]] },
+    "Evaluate News Review": { "main": [[{ "node": "IF News Proceed", "type": "main", "index": 0 }]] },
+    "IF News Proceed": {
       "main": [
         [{ "node": "Claude Draft", "type": "main", "index": 0 }],
+        [{ "node": "IF News Retry", "type": "main", "index": 0 }]
+      ]
+    },
+    "IF News Retry": {
+      "main": [
+        [{ "node": "News Review Attempt", "type": "main", "index": 0 }],
         [{ "node": "Telegram: News Review Rejected", "type": "main", "index": 0 }]
       ]
     },

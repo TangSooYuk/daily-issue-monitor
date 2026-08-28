@@ -1,5 +1,24 @@
 # trends-to-wordpress.n8n.json (v2 — Telegram 승인 + 수동 키워드 + 반복 방지)
 
+## v2.1 — 텔레그램 승인 무응답 시 재전송 + 자동 승인 (신규)
+
+두 승인 지점(키워드 승인 / 뉴스 검토 승인) 모두 아래 규칙이 적용됩니다.
+
+- 최초 메시지(1/5) 전송 후 **3분** 내 응답이 없으면 2/5 재전송
+- 이후 재전송은 **5분 간격**으로 3/5, 4/5, 5/5까지 진행 (각 메시지에 "N/5번째 요청" 표시)
+- **5/5까지도 응답이 없으면 자동 승인 처리**되어 다음 단계로 그대로 진행됨
+- 버튼 클릭(승인/거절)이 오면 대기 중이던 재전송 사이클은 즉시 멈추고 그 결정대로 진행
+
+**신규 노드**: `Keyword Approval Attempt` / `Evaluate Keyword Approval` / `IF Approval Proceed` / `IF Approval Retry` (키워드 승인), `News Review Attempt` / `Evaluate News Review` / `IF News Proceed` / `IF News Retry` (뉴스 검토 승인). 기존 `IF Keyword Approved`, `IF News Approved` 노드는 제거되었습니다.
+
+**⚠️ Import 후 반드시 확인**: `Wait Keyword Approval`, `Wait News Review` 두 노드를 열어서
+1. Resume = "On Webhook Call" 유지
+2. **"Limit Wait Time" 토글 ON**
+3. Limit Type = "After Time Interval"
+4. Amount 필드가 표현식(`{{ }}`) 모드로 들어갔는지 확인 — 숫자 입력창으로 깨져 보이면 필드 옆 fx 아이콘을 눌러 expression 모드로 전환 후 JSON에 있는 식을 그대로 다시 입력
+
+**주의**: 재전송이 한 번이라도 일어나면, 이전 메시지의 승인/거절 버튼은 더 이상 유효하지 않습니다 (그 시점의 대기 인스턴스가 이미 지나갔기 때문). 항상 **가장 최근에 온 메시지**의 버튼을 눌러야 합니다.
+
 ## 무엇이 바뀌었나 (v1 대비)
 
 - **3시간마다 실행** (기존 1일 1회 → 매일 8번)
