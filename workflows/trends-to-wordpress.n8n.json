@@ -103,15 +103,27 @@
       "parameters": {
         "chatId": "REPLACE_WITH_YOUR_TELEGRAM_CHAT_ID",
         "text": "=오늘의 트렌드 키워드 후보: *{{ $json.keyword }}*\n(검색량: {{ $json.approx_traffic || '정보없음' }})\n\n이 키워드로 포스팅을 진행할까요?",
+        "replyMarkup": "inlineKeyboard",
+        "inlineKeyboard": {
+          "rows": [
+            {
+              "row": {
+                "buttons": [
+                  { "text": "✅ 승인", "additionalFields": { "url": "={{ $execution.resumeUrl }}&decision=approve" } },
+                  { "text": "❌ 거절", "additionalFields": { "url": "={{ $execution.resumeUrl }}&decision=reject" } }
+                ]
+              }
+            }
+          ]
+        },
         "additionalFields": {
-          "parse_mode": "Markdown",
-          "reply_markup": "={{ { inline_keyboard: [ [ { text: '✅ 승인', url: $execution.resumeUrl + '&decision=approve' }, { text: '❌ 거절', url: $execution.resumeUrl + '&decision=reject' } ] ] } }}"
+          "parse_mode": "Markdown"
         }
       },
       "credentials": {
         "telegramApi": { "id": "REPLACE_WITH_YOUR_TELEGRAM_CREDENTIAL_ID", "name": "Telegram Bot" }
       },
-      "notes": "VERIFY IN UI: reply_markup field path may differ by n8n version. If buttons don't render, rebuild via the node's own Reply Markup -> Inline Keyboard UI, URL = {{ $execution.resumeUrl }}?decision=approve / reject."
+      "notes": "VERIFY IN UI: this inlineKeyboard structure matches n8n's Telegram node UI-driven format, but field names can still shift between versions. If buttons don't render after import, open Reply Markup and confirm the two buttons + their URL values are intact."
     },
     {
       "id": "wait-keyword-approval",
@@ -307,15 +319,27 @@
       "parameters": {
         "chatId": "REPLACE_WITH_YOUR_TELEGRAM_CHAT_ID",
         "text": "=📰 *{{ $json.keyword }}* 관련 수집된 뉴스:\n\n{{ $json.news_list }}\n\n이 뉴스로 초안을 작성할까요?",
+        "replyMarkup": "inlineKeyboard",
+        "inlineKeyboard": {
+          "rows": [
+            {
+              "row": {
+                "buttons": [
+                  { "text": "✅ 진행", "additionalFields": { "url": "={{ $execution.resumeUrl }}&decision=approve" } },
+                  { "text": "❌ 취소", "additionalFields": { "url": "={{ $execution.resumeUrl }}&decision=reject" } }
+                ]
+              }
+            }
+          ]
+        },
         "additionalFields": {
-          "parse_mode": "Markdown",
-          "reply_markup": "={{ { inline_keyboard: [ [ { text: '✅ 진행', url: $execution.resumeUrl + '&decision=approve' }, { text: '❌ 취소', url: $execution.resumeUrl + '&decision=reject' } ] ] } }}"
+          "parse_mode": "Markdown"
         }
       },
       "credentials": {
         "telegramApi": { "id": "REPLACE_WITH_YOUR_TELEGRAM_CREDENTIAL_ID", "name": "Telegram Bot" }
       },
-      "notes": "Same reply_markup caveat as the other Telegram approval nodes -- verify in UI."
+      "notes": "Same inlineKeyboard structure as the other approval node -- verify buttons survive import."
     },
     {
       "id": "wait-news-review",
