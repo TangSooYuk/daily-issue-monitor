@@ -399,106 +399,29 @@
       }
     },
     {
-      "id": "publish-wordpress",
-      "name": "Publish WordPress",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
+      "id": "send-email-draft",
+      "name": "Send Email Draft",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
       "position": [5720, 0],
       "parameters": {
-        "method": "POST",
-        "url": "https://deohaam.com/wp-json/wp/v2/posts",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "httpBasicAuth",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ title: $json.title, content: $json.body_html, excerpt: $json.meta_description, status: \"draft\" }) }}"
+        "fromEmail": "REPLACE_WITH_YOUR_GMAIL_ADDRESS",
+        "toEmail": "REPLACE_WITH_YOUR_GMAIL_ADDRESS",
+        "subject": "=[초안] {{ $json.title }}",
+        "emailFormat": "html",
+        "html": "={{ $json.body_html + '<hr><p><b>메타 설명:</b> ' + $json.meta_description + '</p><p><b>태그:</b> ' + ($json.tags || []).join(', ') + '</p>' }}"
       },
       "credentials": {
-        "httpBasicAuth": { "id": "REPLACE_WITH_YOUR_WORDPRESS_CREDENTIAL_ID", "name": "WordPress Application Password" }
-      }
-    },
-    {
-      "id": "build-preview-link",
-      "name": "Build Preview Link",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [5980, 0],
-      "parameters": {
-        "jsCode": "const post = $input.first().json;\nreturn [{\n  json: {\n    ...post,\n    previewUrl: `https://deohaam.com/?p=${post.id}&preview=true`\n  }\n}];"
-      }
-    },
-    {
-      "id": "telegram-final-approval",
-      "name": "Send Telegram Final Approval",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1.2,
-      "position": [6240, 0],
-      "parameters": {
-        "chatId": "REPLACE_WITH_YOUR_TELEGRAM_CHAT_ID",
-        "text": "=초안이 준비됐습니다.\n제목: {{ $json.title }}\n미리보기: {{ $json.previewUrl }}\n\n발행할까요?",
-        "additionalFields": {
-          "reply_markup": "={{ { inline_keyboard: [ [ { text: '✅ 발행', url: $execution.resumeUrl + '&decision=approve' }, { text: '❌ 삭제', url: $execution.resumeUrl + '&decision=reject' } ] ] } }}"
-        }
+        "smtp": { "id": "REPLACE_WITH_YOUR_SMTP_CREDENTIAL_ID", "name": "Gmail SMTP" }
       },
-      "credentials": {
-        "telegramApi": { "id": "REPLACE_WITH_YOUR_TELEGRAM_CREDENTIAL_ID", "name": "Telegram Bot" }
-      },
-      "notes": "Same reply_markup caveat -- verify in UI."
+      "notes": "TEMPORARY fallback while WordPress publishing is broken. Once WordPress works again, swap this (and Mark Handled below) back for Publish WordPress + preview-link + final-approval + publish/delete, per git history."
     },
     {
-      "id": "wait-final-approval",
-      "name": "Wait Final Approval",
-      "type": "n8n-nodes-base.wait",
-      "typeVersion": 1.1,
-      "position": [6500, 0],
-      "webhookId": "wait-final-approval-hook",
-      "parameters": { "resume": "webhook", "options": {} }
-    },
-    {
-      "id": "if-final-approved",
-      "name": "IF Final Approved",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [6760, 0],
-      "parameters": {
-        "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
-          "conditions": [
-            {
-              "leftValue": "={{ $json.query.decision }}",
-              "rightValue": "approve",
-              "operator": { "type": "string", "operation": "equals" }
-            }
-          ],
-          "combinator": "and"
-        }
-      }
-    },
-    {
-      "id": "publish-status-update",
-      "name": "Publish Status Update",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [7020, -120],
-      "parameters": {
-        "method": "POST",
-        "url": "=https://deohaam.com/wp-json/wp/v2/posts/{{ $('Build Preview Link').item.json.id }}",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "httpBasicAuth",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ status: \"publish\" }) }}"
-      },
-      "credentials": {
-        "httpBasicAuth": { "id": "REPLACE_WITH_YOUR_WORDPRESS_CREDENTIAL_ID", "name": "WordPress Application Password" }
-      }
-    },
-    {
-      "id": "mark-published",
-      "name": "Mark Published",
+      "id": "mark-handled",
+      "name": "Mark Handled",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [7280, -120],
+      "position": [5980, 0],
       "onError": "continueRegularOutput",
       "parameters": {
         "resource": "row",
@@ -509,31 +432,14 @@
         "fieldsUi": {
           "fieldValues": [
             { "fieldId": "id", "fieldValue": "={{ $('Keyword Context').item.json.id }}" },
-            { "fieldId": "wp_post_id", "fieldValue": "={{ $('Build Preview Link').item.json.id }}" },
             { "fieldId": "posted_at", "fieldValue": "={{ $now.toISO() }}" }
           ]
         }
       },
       "credentials": {
         "supabaseApi": { "id": "REPLACE_WITH_YOUR_SUPABASE_CREDENTIAL_ID", "name": "Supabase account" }
-      }
-    },
-    {
-      "id": "delete-wordpress-draft",
-      "name": "Delete WordPress Draft",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [7020, 120],
-      "parameters": {
-        "method": "DELETE",
-        "url": "=https://deohaam.com/wp-json/wp/v2/posts/{{ $('Build Preview Link').item.json.id }}?force=true",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "httpBasicAuth"
       },
-      "credentials": {
-        "httpBasicAuth": { "id": "REPLACE_WITH_YOUR_WORDPRESS_CREDENTIAL_ID", "name": "WordPress Application Password" }
-      },
-      "notes": "force=true permanently deletes. Remove '?force=true' to send to Trash instead (recoverable)."
+      "notes": "Sets posted_at (no wp_post_id, since nothing was actually published) so the 14-day cooldown logic still prevents re-emailing the same keyword every 3 hours."
     }
   ],
   "connections": {
@@ -576,18 +482,8 @@
       ]
     },
     "Claude Draft": { "main": [[{ "node": "Parse Claude Response", "type": "main", "index": 0 }]] },
-    "Parse Claude Response": { "main": [[{ "node": "Publish WordPress", "type": "main", "index": 0 }]] },
-    "Publish WordPress": { "main": [[{ "node": "Build Preview Link", "type": "main", "index": 0 }]] },
-    "Build Preview Link": { "main": [[{ "node": "Send Telegram Final Approval", "type": "main", "index": 0 }]] },
-    "Send Telegram Final Approval": { "main": [[{ "node": "Wait Final Approval", "type": "main", "index": 0 }]] },
-    "Wait Final Approval": { "main": [[{ "node": "IF Final Approved", "type": "main", "index": 0 }]] },
-    "IF Final Approved": {
-      "main": [
-        [{ "node": "Publish Status Update", "type": "main", "index": 0 }],
-        [{ "node": "Delete WordPress Draft", "type": "main", "index": 0 }]
-      ]
-    },
-    "Publish Status Update": { "main": [[{ "node": "Mark Published", "type": "main", "index": 0 }]] }
+    "Parse Claude Response": { "main": [[{ "node": "Send Email Draft", "type": "main", "index": 0 }]] },
+    "Send Email Draft": { "main": [[{ "node": "Mark Handled", "type": "main", "index": 0 }]] }
   },
   "active": false,
   "settings": { "executionOrder": "v1" },
