@@ -12,11 +12,11 @@
           ]
         }
       },
-      "id": "4849d698-363e-464c-87d0-bb895611d2a7",
+      "id": "e0c048c2-d494-4296-af43-971bcaff6fa8",
       "name": "Schedule Trigger",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [-640, 160]
+      "position": [-6480, 528]
     },
     {
       "parameters": {
@@ -29,42 +29,42 @@
           }
         }
       },
-      "id": "4485c1cb-12fe-4cb4-84d6-1a762b0095db",
+      "id": "8077ba63-55ba-4054-8ded-cc8c9232deb3",
       "name": "Fetch Trends RSS",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-384, 160]
+      "position": [-6256, 528]
     },
     {
       "parameters": {
         "options": {}
       },
-      "id": "6bead8db-6445-4631-af27-3e0c49d7e6ea",
+      "id": "0d9d687a-79f1-4562-a453-41c53bacf17f",
       "name": "XML to JSON",
       "type": "n8n-nodes-base.xml",
       "typeVersion": 1,
-      "position": [-128, 160]
+      "position": [-6032, 528]
     },
     {
       "parameters": {
         "jsCode": "const root = $input.first().json.rss.channel;\nconst channel = Array.isArray(root) ? root[0] : root;\nconst rawItems = channel.item;\nconst items = Array.isArray(rawItems) ? rawItems : [rawItems];\nconst trendDate = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10); // KST date, not UTC\n\nconst pick = (obj, key) => {\n  const v = obj?.[key];\n  return Array.isArray(v) ? v[0] : v;\n};\n\nconst results = items.slice(0, 20).map((item, idx) => ({\n  json: {\n    rank: idx + 1,\n    keyword: pick(item, 'title') || '',\n    approx_traffic: pick(item, 'ht:approx_traffic') || null,\n    trend_link: pick(item, 'link') || '',\n    region: 'KR',\n    trend_date: trendDate,\n    source: 'trend'\n  }\n}));\n\nreturn results;\n\n// NOTE: field names above (e.g. 'ht:approx_traffic') depend on how the\n// XML node namespaces tags in your n8n version. Verify against a live run."
       },
-      "id": "69ead607-3b9d-4e83-9daf-5620acf54abb",
+      "id": "dc68f41b-2d3b-4550-ac5f-fb91f2158f0d",
       "name": "Extract Top 20",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [144, 160]
+      "position": [-5808, 528]
     },
     {
       "parameters": {
         "tableId": "trending_keywords",
         "dataToSend": "autoMapInputData"
       },
-      "id": "f0feae9d-4b14-49cf-8cf0-e9c596d542bd",
+      "id": "9dc5b749-d54b-4433-98d3-9854a04c944b",
       "name": "Insert Keywords History",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [400, 160],
+      "position": [-5584, 528],
       "credentials": {
         "supabaseApi": {
           "id": "APCjwvwaP8MxdSLA",
@@ -80,11 +80,11 @@
         "tableId": "trending_keywords",
         "returnAll": true
       },
-      "id": "42c7ffba-a97f-468c-8652-6f857a2620c2",
+      "id": "1b886c0a-7989-4d11-bb6e-9b47236781b0",
       "name": "Get Recently Posted",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [672, 160],
+      "position": [-5360, 528],
       "credentials": {
         "supabaseApi": {
           "id": "APCjwvwaP8MxdSLA",
@@ -97,21 +97,21 @@
       "parameters": {
         "jsCode": "const COOLDOWN_DAYS = 14;\nconst cooldownMs = COOLDOWN_DAYS * 24 * 60 * 60 * 1000;\nconst now = Date.now();\nconst today = new Date(now + 9 * 60 * 60 * 1000).toISOString().slice(0, 10); // KST date, not UTC\n\nconst topKeywords = $('Extract Top 20').all().map(i => i.json); // ranked, index 0 = highest volume\nconst allRows = $input.all().map(i => i.json); // Get Recently Posted output (includes rows Insert Keywords History just wrote)\n\nconst recentlyPosted = new Set(\n  allRows\n    .filter(r => r.posted_at && (now - new Date(r.posted_at).getTime()) < cooldownMs)\n    .map(r => r.keyword)\n);\n\nconst candidate = topKeywords.find(k => !recentlyPosted.has(k.keyword));\nif (!candidate) {\n  return []; // nothing new this run -- everything downstream simply won't fire\n}\n\nconst dbRow = allRows.find(r => r.keyword === candidate.keyword && r.trend_date === today && r.region === 'KR');\nif (!dbRow) {\n  // Should not happen since Insert Keywords History ran first, but bail safely if it does.\n  return [];\n}\n\nreturn [{\n  json: {\n    id: dbRow.id,\n    keyword: dbRow.keyword,\n    approx_traffic: dbRow.approx_traffic,\n    trend_link: dbRow.trend_link\n  }\n}];"
       },
-      "id": "9e0395b7-d665-4585-951e-5b45b8fa411d",
+      "id": "8b035bf5-ef35-4f58-9613-50a76b846066",
       "name": "Pick Next Keyword",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [928, 160]
+      "position": [-5136, 528]
     },
     {
       "parameters": {
         "jsCode": "// Loop entry point: reached either from Pick Next Keyword (attempt starts at 1)\n// or from IF Approval Retry looping back (attempt already incremented). Normalizes\n// the shape either way so Send Telegram / Wait / Evaluate can rely on a stable node name.\nconst input = $input.first().json;\nreturn [{\n  json: {\n    id: input.id,\n    keyword: input.keyword,\n    approx_traffic: input.approx_traffic,\n    trend_link: input.trend_link,\n    attempt: input.attempt || 1\n  }\n}];"
       },
-      "id": "a1e1c001-0001-4a11-8001-000000000001",
+      "id": "d0d36d2d-507e-4926-a620-e730775f9408",
       "name": "Keyword Approval Attempt",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1184, 160]
+      "position": [-4912, 528]
     },
     {
       "parameters": {
@@ -144,11 +144,11 @@
           "parse_mode": "Markdown"
         }
       },
-      "id": "85f4e4ca-ac44-43f0-8d7d-a76dda786da6",
+      "id": "77f5188d-ff61-4453-bc9c-1f6d2738aaac",
       "name": "Send Telegram Keyword Approval",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [1440, 160],
+      "position": [-4688, 448],
       "webhookId": "51e32524-3e7c-4b16-a3df-4f02230b2aa2",
       "credentials": {
         "telegramApi": {
@@ -162,16 +162,15 @@
       "parameters": {
         "resume": "webhook",
         "limitWaitTime": true,
-        "limitType": "afterTimeInterval",
         "resumeAmount": "={{ $('Keyword Approval Attempt').item.json.attempt === 1 ? 3 : 5 }}",
         "resumeUnit": "minutes",
         "options": {}
       },
-      "id": "38b32abf-76c7-4d62-b7d0-0d3bfcb78e84",
+      "id": "c12acaed-6fc0-4e17-8bba-fcfb65ff76a2",
       "name": "Wait Keyword Approval",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
-      "position": [1696, 160],
+      "position": [-4464, 448],
       "webhookId": "wait-keyword-approval-hook",
       "notes": "VERIFY IN UI: open this node, confirm Resume=On Webhook Call, then toggle 'Limit Wait Time' ON, Limit Type=After Time Interval, and check the Amount field accepts the expression above (switch it to expression/fx mode if it was imported as a plain number)."
     },
@@ -179,11 +178,11 @@
       "parameters": {
         "jsCode": "// $json here is either the Telegram webhook resume payload (button click) or,\n// if Wait's time limit fired first, a passthrough of whatever fed the Wait node --\n// so attempt/keyword data always comes from the named Keyword Approval Attempt node.\nconst attemptData = $('Keyword Approval Attempt').item.json;\nconst hasDecision = $json.query && typeof $json.query.decision !== 'undefined';\n\nif (hasDecision) {\n  return [{\n    json: {\n      ...attemptData,\n      outcome: $json.query.decision === 'approve' ? 'proceed' : 'rejected'\n    }\n  }];\n}\n\nconst MAX_ATTEMPTS = 5;\nif (attemptData.attempt >= MAX_ATTEMPTS) {\n  return [{ json: { ...attemptData, outcome: 'proceed', auto_approved: true } }];\n}\nreturn [{ json: { ...attemptData, attempt: attemptData.attempt + 1, outcome: 'retry' } }];"
       },
-      "id": "a1e1c001-0002-4a11-8001-000000000002",
+      "id": "6075ec78-46e5-4905-929a-d875db047115",
       "name": "Evaluate Keyword Approval",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1952, 160]
+      "position": [-4240, 448]
     },
     {
       "parameters": {
@@ -208,11 +207,11 @@
         },
         "options": {}
       },
-      "id": "a1e1c001-0003-4a11-8001-000000000003",
+      "id": "f71face1-5a07-40f9-a755-e16e498a6d70",
       "name": "IF Approval Proceed",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [2208, 160]
+      "position": [-4016, 448]
     },
     {
       "parameters": {
@@ -237,11 +236,11 @@
         },
         "options": {}
       },
-      "id": "a1e1c001-0004-4a11-8001-000000000004",
+      "id": "47d6befc-1039-403c-970b-49960f78e853",
       "name": "IF Approval Retry",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [2208, 380],
+      "position": [-3792, 528],
       "notes": "true -> loops back to Keyword Approval Attempt with attempt+1. false here means outcome was 'rejected' -- ends silently, same as before."
     },
     {
@@ -249,11 +248,11 @@
         "updates": ["message"],
         "additionalFields": {}
       },
-      "id": "60cdafcb-3842-4ccb-8a2d-06f4047df0c6",
+      "id": "0a660d62-6191-4ac6-b4f7-3ec2ce81383f",
       "name": "Telegram Trigger (Manual Keyword)",
       "type": "n8n-nodes-base.telegramTrigger",
       "typeVersion": 1.1,
-      "position": [-640, 864],
+      "position": [-4464, 832],
       "webhookId": "4e0d1c86-3d27-4e17-98a0-39682dafb495",
       "credentials": {
         "telegramApi": {
@@ -266,22 +265,22 @@
       "parameters": {
         "jsCode": "const message = $input.first().json.message;\nconst text = (message && message.text) || '';\nconst match = text.match(/^\\/post\\s+(.+)/i);\nif (!match) {\n  return []; // not a /post command -- ignore\n}\nconst keyword = match[1].trim();\nconst today = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10); // KST date, not UTC\nreturn [{\n  json: {\n    keyword,\n    rank: null,\n    approx_traffic: null,\n    trend_link: null,\n    region: 'KR',\n    trend_date: today,\n    source: 'manual'\n  }\n}];"
       },
-      "id": "7aeeb599-3f65-4487-bfcd-e5f96b522bd5",
+      "id": "818abd95-6e36-4e65-9d23-fd9da655df54",
       "name": "Parse Manual Keyword",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-384, 864]
+      "position": [-4240, 832]
     },
     {
       "parameters": {
         "tableId": "trending_keywords",
         "dataToSend": "autoMapInputData"
       },
-      "id": "5f93f405-0689-4e08-9c41-d0643575a3db",
+      "id": "2fbe7b57-fb39-4068-8dd9-fe3765a79f41",
       "name": "Insert Manual Keyword",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [-128, 864],
+      "position": [-4016, 832],
       "credentials": {
         "supabaseApi": {
           "id": "APCjwvwaP8MxdSLA",
@@ -298,7 +297,7 @@
       "name": "Parse Approval Comment",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-384, 1100]
+      "position": [-4240, 1050]
     },
     {
       "parameters": {
@@ -310,7 +309,7 @@
       "name": "Get Rows For Approval Lookup",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [-128, 1100],
+      "position": [-4016, 1050],
       "credentials": {
         "supabaseApi": {
           "id": "APCjwvwaP8MxdSLA",
@@ -327,7 +326,7 @@
       "name": "Find Pending Resume URL",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [144, 1100]
+      "position": [-3792, 1050]
     },
     {
       "parameters": {
@@ -339,8 +338,8 @@
       "name": "Resolve Pending Approval",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [400, 1100],
-      "notes": "Same mechanism as the inline keyboard buttons (a GET to $execution.resumeUrl), just triggered from a typed reply instead of a button click. If this errors, most likely the Wait instance already resumed (button was clicked first) or the retry loop moved past it -- check onError below wasn't needed since a failure here just means the message came too late.",
+      "position": [-3568, 1050],
+      "notes": "Same mechanism as the inline keyboard buttons (a GET to $execution.resumeUrl), just triggered from a typed reply instead of a button click. If this errors, most likely the Wait instance already resumed (button was clicked first) or the retry loop moved past it -- a failure here just means the message came too late.",
       "onError": "continueRegularOutput"
     },
     {
@@ -369,7 +368,7 @@
       "name": "Clear Pending Resume URL",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [672, 1100],
+      "position": [-3344, 1050],
       "credentials": {
         "supabaseApi": {
           "id": "APCjwvwaP8MxdSLA",
@@ -390,7 +389,7 @@
       "name": "Telegram: Comment Approval Ack",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [928, 1100],
+      "position": [-3120, 1050],
       "credentials": {
         "telegramApi": {
           "id": "7oxTl9ZzFfqBvEU2",
@@ -402,11 +401,11 @@
       "parameters": {
         "jsCode": "// Single convergence point for Flow A (approved trend, arrives after a Wait node -- so $json/$input\n// at this point would just be the Telegram resume payload, NOT the keyword data) and Flow B (manual\n// /post, arrives directly with no Wait in between). Reference the real source explicitly by name.\nlet source;\ntry {\n  source = $('Pick Next Keyword').item.json;\n} catch (e) {\n  source = $('Insert Manual Keyword').item.json;\n}\nreturn [{\n  json: {\n    id: source.id,\n    keyword: source.keyword,\n    trend_link: source.trend_link || null\n  }\n}];"
       },
-      "id": "150fd2a1-dbca-442c-b348-491be35a9ae7",
+      "id": "d99cddb2-373f-4b0f-a968-db7f9ca244fd",
       "name": "Keyword Context",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2464, 464]
+      "position": [-3792, 720]
     },
     {
       "parameters": {
@@ -426,33 +425,33 @@
         },
         "options": {}
       },
-      "id": "9c839e53-79c1-4151-b602-e7e7d29b55e4",
+      "id": "b4b84691-8116-4d48-999d-47720ece92d4",
       "name": "Search Naver News",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2720, 464],
+      "position": [-3568, 720],
       "notes": "sort=date so the most recent articles come first, required for the recency filter next. VERIFY IN UI: re-enter your real X-NCP-APIGW-API-KEY-ID/SECRET here after import -- the committed JSON keeps placeholders since this repo is public."
     },
     {
       "parameters": {
         "jsCode": "const RECENCY_HOURS = 48;\nconst keywordCtx = $('Keyword Context').item.json;\nconst response = $input.first().json;\nconst articles = response.items || [];\nconst cutoff = Date.now() - RECENCY_HOURS * 3600 * 1000;\n\nconst recent = articles.filter(a => {\n  const t = new Date(a.pubDate).getTime();\n  return !isNaN(t) && t >= cutoff;\n});\n\nreturn recent.map(a => ({\n  json: {\n    keyword_id: keywordCtx.id,\n    title: (a.title || '').replace(/<[^>]+>/g, ''),\n    url: a.originallink || a.link,\n    source: 'naver_news',\n    published_at: a.pubDate\n  }\n}));"
       },
-      "id": "3abb0cdc-9ef1-40e0-8d32-01a3573c439e",
+      "id": "19a0e84c-1977-4057-9552-f69ded0c1d39",
       "name": "Parse & Split Articles",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2976, 464]
+      "position": [-3344, 720]
     },
     {
       "parameters": {
         "tableId": "keyword_news",
         "dataToSend": "autoMapInputData"
       },
-      "id": "8caa24a9-bedd-4bc2-b959-5777a756cbdf",
+      "id": "482fa970-bf56-4fbd-b8d1-e5909af1d7bc",
       "name": "Insert News",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [3232, 464],
+      "position": [-3120, 720],
       "credentials": {
         "supabaseApi": {
           "id": "APCjwvwaP8MxdSLA",
@@ -475,11 +474,11 @@
         },
         "options": {}
       },
-      "id": "3db62603-f051-4070-9bd9-8ccb0f744bda",
+      "id": "64a57898-2c25-4fd5-a9fa-dba023c1d46a",
       "name": "Aggregate News",
       "type": "n8n-nodes-base.aggregate",
       "typeVersion": 1,
-      "position": [3488, 464]
+      "position": [-2896, 720]
     },
     {
       "parameters": {
@@ -504,11 +503,11 @@
         },
         "options": {}
       },
-      "id": "bcc3c139-68e4-4de8-a944-377b7ee3642e",
+      "id": "24844d4d-5e10-444e-ad0d-08a5a11a710a",
       "name": "IF News Found",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [3744, 464]
+      "position": [-2672, 720]
     },
     {
       "parameters": {
@@ -518,11 +517,11 @@
           "parse_mode": "Markdown"
         }
       },
-      "id": "5c769937-266f-4012-a31d-aec13845ce90",
+      "id": "c033621e-3329-43a6-ba50-6009cac6b7e2",
       "name": "Telegram: No Recent News",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [4000, 640],
+      "position": [-2448, 912],
       "webhookId": "a35511b2-4fa3-4098-a012-323382c0b6fb",
       "credentials": {
         "telegramApi": {
@@ -535,21 +534,21 @@
       "parameters": {
         "jsCode": "const keywordCtx = $('Keyword Context').item.json;\nconst agg = $input.first().json;\nconst titles = agg.title || [];\nconst urls = agg.url || [];\nconst newsLines = titles.map((t, i) => `${i + 1}. ${t}\\n   ${urls[i] || ''}`).join('\\n') || '(관련 뉴스 없음)';\n\nreturn [{\n  json: {\n    id: keywordCtx.id,\n    keyword: keywordCtx.keyword,\n    trend_link: keywordCtx.trend_link,\n    news_list: newsLines\n  }\n}];"
       },
-      "id": "9adbe0b7-98cf-43a2-8b36-faaba9326994",
+      "id": "e2d084ae-46bc-4050-bd67-df5ec5f87c96",
       "name": "Build News Summary",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [4000, 320]
+      "position": [-2448, 624]
     },
     {
       "parameters": {
         "jsCode": "// Loop entry point: reached either from Build News Summary (attempt starts at 1)\n// or from IF News Retry looping back (attempt already incremented).\nconst input = $input.first().json;\nreturn [{\n  json: {\n    id: input.id,\n    keyword: input.keyword,\n    trend_link: input.trend_link,\n    news_list: input.news_list,\n    attempt: input.attempt || 1\n  }\n}];"
       },
-      "id": "a1e1c001-0005-4a11-8001-000000000005",
+      "id": "afed1353-67e2-4336-b984-4c9a2bcaec6e",
       "name": "News Review Attempt",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [4256, 320]
+      "position": [-2224, 624]
     },
     {
       "parameters": {
@@ -582,11 +581,11 @@
           "parse_mode": "Markdown"
         }
       },
-      "id": "a6805be6-e9cd-4e1c-aa5f-050e93deb452",
+      "id": "c8898aa9-0aa9-4d2e-acda-e70237d929e0",
       "name": "Send Telegram News Review",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [4512, 320],
+      "position": [-2000, 544],
       "webhookId": "a49d950b-bff9-43e9-af65-b7661a1d27e9",
       "credentials": {
         "telegramApi": {
@@ -622,7 +621,7 @@
       "name": "Store Pending Resume URL",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [4640, 200],
+      "position": [-1888, 400],
       "credentials": {
         "supabaseApi": {
           "id": "APCjwvwaP8MxdSLA",
@@ -636,16 +635,15 @@
       "parameters": {
         "resume": "webhook",
         "limitWaitTime": true,
-        "limitType": "afterTimeInterval",
         "resumeAmount": "={{ $('News Review Attempt').item.json.attempt === 1 ? 3 : 5 }}",
         "resumeUnit": "minutes",
         "options": {}
       },
-      "id": "969d8db4-925f-495d-9c15-97e9449a8e3a",
+      "id": "bdc2c576-8cc7-422b-8fea-ada467675c83",
       "name": "Wait News Review",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
-      "position": [4768, 320],
+      "position": [-1776, 544],
       "webhookId": "wait-news-review-hook",
       "notes": "VERIFY IN UI: same as Wait Keyword Approval -- confirm Limit Wait Time toggle + expression-mode Amount field survive import."
     },
@@ -653,11 +651,11 @@
       "parameters": {
         "jsCode": "const attemptData = $('News Review Attempt').item.json;\nconst hasDecision = $json.query && typeof $json.query.decision !== 'undefined';\n\nif (hasDecision) {\n  return [{\n    json: {\n      ...attemptData,\n      outcome: $json.query.decision === 'approve' ? 'proceed' : 'rejected',\n      comment: $json.query.comment || null\n    }\n  }];\n}\n\nconst MAX_ATTEMPTS = 5;\nif (attemptData.attempt >= MAX_ATTEMPTS) {\n  return [{ json: { ...attemptData, outcome: 'proceed', auto_approved: true, comment: null } }];\n}\nreturn [{ json: { ...attemptData, attempt: attemptData.attempt + 1, outcome: 'retry' } }];"
       },
-      "id": "a1e1c001-0006-4a11-8001-000000000006",
+      "id": "234266ad-1579-4195-b164-3c544a5b23fb",
       "name": "Evaluate News Review",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [5024, 320]
+      "position": [-1552, 544]
     },
     {
       "parameters": {
@@ -682,11 +680,11 @@
         },
         "options": {}
       },
-      "id": "a1e1c001-0007-4a11-8001-000000000007",
+      "id": "3ce30a36-e71c-482f-a512-e7de1a2bf363",
       "name": "IF News Proceed",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [5280, 320]
+      "position": [-1328, 544]
     },
     {
       "parameters": {
@@ -711,11 +709,11 @@
         },
         "options": {}
       },
-      "id": "a1e1c001-0008-4a11-8001-000000000008",
+      "id": "f6ac2c6d-c40b-4a74-b0ba-c72fc90ac7e3",
       "name": "IF News Retry",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [5280, 540],
+      "position": [-1104, 720],
       "notes": "true -> loops back to News Review Attempt with attempt+1. false means outcome was 'rejected' -> Telegram: News Review Rejected."
     },
     {
@@ -726,11 +724,11 @@
           "parse_mode": "Markdown"
         }
       },
-      "id": "571bdce6-d55c-4d22-bce3-f0d650187480",
+      "id": "0322ff07-a625-448c-beb1-aeb5fcffe7c3",
       "name": "Telegram: News Review Rejected",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [5536, 464],
+      "position": [-880, 720],
       "webhookId": "ebe256b3-7a2f-4cff-bdeb-e660d4b3589a",
       "credentials": {
         "telegramApi": {
@@ -763,11 +761,11 @@
         "jsonBody": "={{ JSON.stringify({ model: \"claude-sonnet-5\", max_tokens: 4096, tools: [{ name: \"blog_draft\", description: \"워드프레스에 바로 등록 가능한 블로그 초안 생성\", input_schema: { type: \"object\", properties: { title: { type: \"string\" }, body_html: { type: \"string\" }, excerpt: { type: \"string\" }, tags: { type: \"array\", items: { type: \"string\" } }, category: { type: \"string\", enum: [\"정치\", \"경제\", \"사회\", \"생활/문화\", \"IT/과학\", \"연예\", \"스포츠\", \"국제\", \"기타\"] }, meta_description: { type: \"string\" } }, required: [\"title\", \"body_html\", \"excerpt\", \"tags\", \"category\", \"meta_description\"] } }], tool_choice: { type: \"tool\", name: \"blog_draft\" }, messages: [{ role: \"user\", content: (() => { const base = `지금 화제인 키워드: ${$('Build News Summary').item.json.keyword}\\n\\n관련 뉴스:\\n${$('Build News Summary').item.json.news_list}\\n\\nGoogle Trends 원본 링크: ${$('Build News Summary').item.json.trend_link}\\n\\n위 내용을 참고해서 이 키워드를 자연스럽게 다루는 한국어 블로그 글을 작성해줘.\\n\\n작성 지침:\\n- 도입부는 '~가 화제인 이유는', '~에 대해 알아보겠습니다' 같은 상투적이고 AI스러운 문장으로 시작하지 마. 매번 다른 각도로 -- 최근 반응, 지금 분위기, 사람들이 주목하는 포인트 등 -- 자연스럽게 짚으면서 이 키워드로 시작해줘. 매 포스팅마다 도입부 스타일을 다르게 해줘.\\n- body_html 끝부분은 부가 설명이 아니라 글의 흐름을 자연스럽게 마무리하는 문단으로 끝내고, 참고한 뉴스 출처 링크를 그 안에 자연스럽게 언급해줘.\\n- excerpt는 워드프레스 발췌문(글 목록/공유 시 노출)으로 쓸 1~2문장짜리 짧고 흥미로운 요약을 작성해줘.\\n- meta_description은 본문에는 노출되지 않는 검색엔진용 요약(150자 내외)으로 따로 작성해줘. excerpt와는 톤이 달라도 돼.\\n- category는 정치/경제/사회/생활문화/IT과학/연예/스포츠/국제/기타 중 이 포스팅에 가장 맞는 하나로 골라줘.`; const comment = $('Evaluate News Review').item.json.comment; return comment ? base + `\\n\\n[검토자 코멘트]\\n${comment}\\n위 코멘트 내용을 최대한 반영해서 작성해줘.` : base; })() }] }) }}",
         "options": {}
       },
-      "id": "10facaf0-a5f5-4490-b0a4-bf6d346261c9",
+      "id": "c651c03c-34c8-4dd2-b941-2a00c98d9c07",
       "name": "Claude Draft",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [5536, 160],
+      "position": [-1104, 496],
       "credentials": {
         "httpHeaderAuth": {
           "id": "ObdREGsNtNeEa527",
@@ -780,11 +778,11 @@
       "parameters": {
         "jsCode": "const response = $input.first().json;\nconst toolUse = (response.content || []).find(c => c.type === 'tool_use');\nif (!toolUse) {\n  throw new Error('Claude 응답에 tool_use가 없습니다: ' + JSON.stringify(response));\n}\nreturn [{ json: toolUse.input }];"
       },
-      "id": "b7b0f540-e1de-49d3-9a96-c0d7f6f7e142",
+      "id": "d7562976-58cf-4834-9eae-a2ff2ccaf840",
       "name": "Parse Claude Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [5792, 160]
+      "position": [-864, 448]
     },
     {
       "parameters": {
@@ -794,11 +792,11 @@
         "html": "={{ `<p><b>포스팅 제목:</b> ${$json.title}</p><hr><p><b>포스팅 본문:</b></p>${$json.body_html}<hr><p><b>요약(발췌문):</b> ${$json.excerpt}</p><p><b>카테고리:</b> ${$json.category}</p><p><b>태그:</b> ${($json.tags || []).join(', ')}</p><p><b>SEO 메타 설명:</b> ${$json.meta_description}</p><hr><p><i>⚠️ 대표 이미지(featured image)는 이 파이프라인에서 자동 생성되지 않습니다 -- 워드프레스에 등록하실 때 직접 추가해주세요.</i></p>` }}",
         "options": {}
       },
-      "id": "f4ad1462-01ea-41d7-b076-18ae3851e8a2",
+      "id": "b972380a-3a68-49dc-802a-f1f374aafdfd",
       "name": "Send Email Draft",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
-      "position": [6048, 160],
+      "position": [-656, 496],
       "webhookId": "e09f4b65-b449-40be-96f7-dd8c3c7d54aa",
       "credentials": {
         "smtp": {
@@ -830,11 +828,11 @@
           ]
         }
       },
-      "id": "798ed388-5878-4af0-b927-7b174e4184f1",
+      "id": "d92cc26a-c05c-40e2-956f-c6163ee21e3a",
       "name": "Mark Handled",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [6304, 160],
+      "position": [-432, 496],
       "credentials": {
         "supabaseApi": {
           "id": "APCjwvwaP8MxdSLA",
@@ -852,8 +850,8 @@
       },
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [6560, 80],
-      "id": "41035ff4-5ac1-4421-ade2-8a805b2c94e0",
+      "position": [-208, 400],
+      "id": "a6d1d8d5-03f4-4c27-a5e6-53971af86842",
       "name": "Send a text message",
       "webhookId": "22ccf5a3-96c8-4c5c-b3f2-a98f951fc0ec",
       "credentials": {
@@ -871,8 +869,8 @@
       },
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [6560, 256],
-      "id": "fe17953c-2cfd-450e-ab10-e242a1204833",
+      "position": [-208, 592],
+      "id": "64e54b72-1686-414b-bb1d-75ae07624e9c",
       "name": "Send a text message1",
       "webhookId": "4bb332b6-d8a2-4e37-93d5-9519fc0335d9",
       "credentials": {
@@ -926,8 +924,7 @@
     },
     "IF Approval Retry": {
       "main": [
-        [{ "node": "Keyword Approval Attempt", "type": "main", "index": 0 }],
-        []
+        [{ "node": "Keyword Approval Attempt", "type": "main", "index": 0 }]
       ]
     },
     "Telegram Trigger (Manual Keyword)": {
@@ -1032,7 +1029,7 @@
     "callerPolicy": "workflowsFromSameOwner",
     "availableInMCP": false
   },
-  "versionId": "cd3b76db-63d0-41ef-9d69-345e3253a509",
+  "versionId": "0734a156-f89b-4a72-af2d-b654bbcb8521",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "e607bc1906e1c5525bc5210df2ad20ecf7ea2b1a204fadc7b470cf0474421bc2"
