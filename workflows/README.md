@@ -19,6 +19,18 @@
 
 **주의**: 재전송이 한 번이라도 일어나면, 이전 메시지의 승인/거절 버튼은 더 이상 유효하지 않습니다 (그 시점의 대기 인스턴스가 이미 지나갔기 때문). 항상 **가장 최근에 온 메시지**의 버튼을 눌러야 합니다.
 
+## v2.3 — 워드프레스 자동 발행 복구 + 카테고리/태그 실제 연결 (신규)
+
+몇 달간 막혀있던 워드프레스 401(`rest_cannot_create`) 원인이 **User-Agent 헤더**였던 것으로 확인됐습니다. n8n의 기본 User-Agent(`n8n`)가 어딘가(워드프레스 보안 플러그인 등, Gabia 인프라 레벨은 아님)에서 걸러지고 있었고, `curl/8.21.0`처럼 흔한 값으로 바꾸니 정상 통과했습니다. 이제 이메일 임시방편을 걷어내고 실제 워드프레스 Draft 등록으로 복구했습니다.
+
+**새로 추가된 체인** (`Parse Claude Response` → `Publish WordPress` → `Mark Handled` 사이):
+- `Search WP Category` → `Normalize Category Search` → `IF Category Found` → (없으면) `Create WP Category` — Claude가 고른 카테고리 문자열을 실제 워드프레스 카테고리 ID로 변환 (없으면 새로 생성)
+- `Get All WP Tags` → `Resolve Tag IDs` → `IF Tag Needs Create` → (신규 태그만) `Create WP Tag` → `Aggregate Tag IDs` → `Finalize Tag IDs` — Claude가 만든 태그 배열을 실제 워드프레스 태그 ID 배열로 변환 (신규 태그는 그때그때 생성)
+- `Publish WordPress` — `status: "draft"`로 등록 (대표 이미지 등 최종 검토 후 워드프레스 관리자 화면에서 직접 Publish)
+- `Mark Handled`가 다시 `wp_post_id`를 실제로 기록 (이메일 시절엔 안 썼던 컬럼)
+
+**⚠️ Import 후 필수**: 새로 추가된 워드프레스 관련 노드 5개(`Search WP Category`, `Create WP Category`, `Get All WP Tags`, `Create WP Tag`, `Publish WordPress`) 전부 **"Gabia" Basic Auth 크리덴셜을 다시 선택**해주세요 (JSON엔 플레이스홀더 ID만 들어있어 자동 연결 안 됨). 이 5개 노드 모두 `User-Agent: curl/8.21.0` 헤더가 그대로 남아있는지도 확인하세요 — **이 헤더가 401을 우회하는 핵심**이라 실수로 지우면 다시 막힙니다.
+
 ## v2.2 — 뉴스 검토 승인에 코멘트 추가 (신규)
 
 `Send Telegram News Review` 메시지를 받은 뒤, 버튼 대신 **텍스트로 답장**하면 코멘트를 함께 남길 수 있습니다.
