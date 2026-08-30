@@ -360,13 +360,42 @@
     },
     {
       "parameters": {
-        "jsCode": "const RECENCY_HOURS = 48;\nconst keywordCtx = $('Keyword Context').item.json;\nconst response = $input.first().json;\nconst articles = response.items || [];\nconst cutoff = Date.now() - RECENCY_HOURS * 3600 * 1000;\n\nconst recent = articles.filter(a => {\n  const t = new Date(a.pubDate).getTime();\n  return !isNaN(t) && t >= cutoff;\n});\n\nreturn recent.map(a => ({\n  json: {\n    keyword_id: keywordCtx.id,\n    title: (a.title || '').replace(/<[^>]+>/g, ''),\n    url: a.originallink || a.link,\n    source: 'naver_news',\n    published_at: a.pubDate\n  }\n}));"
+        "jsCode": "const RECENCY_HOURS = 48;\nconst keywordCtx = $('Keyword Context').item.json;\nconst response = $input.first().json;\nconst articles = response.items || [];\nconst cutoff = Date.now() - RECENCY_HOURS * 3600 * 1000;\n\nconst recent = articles\n  .filter(a => {\n    const t = new Date(a.pubDate).getTime();\n    return !isNaN(t) && t >= cutoff;\n  })\n  .map(a => ({\n    keyword_id: keywordCtx.id,\n    title: (a.title || '').replace(/<[^>]+>/g, ''),\n    url: a.originallink || a.link,\n    source: 'naver_news',\n    published_at: a.pubDate\n  }));\n\n// Always return exactly ONE item (even when recent.length === 0) -- n8n skips\n// downstream nodes entirely when an item count hits zero, which used to silently\n// kill the 'no recent news' Telegram notification. IF News Found now reads\n// count/articles directly off this single item instead of depending on\n// Insert News/Aggregate News having actually run.\nreturn [{ json: { keyword_id: keywordCtx.id, count: recent.length, articles: recent } }];"
       },
       "id": "45afd14c-08bd-424c-bf23-20d170050eb3",
       "name": "Parse & Split Articles",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [-6848, 224]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 1 },
+          "conditions": [
+            { "leftValue": "={{ $json.count }}", "rightValue": 0, "operator": { "type": "number", "operation": "gt" } }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "faeb624f-53d2-46e2-8821-ac93ac6b00f4",
+      "name": "IF News Found",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [-6624, 224],
+      "notes": "Moved to run directly off Parse & Split Articles's always-present single item (instead of after Insert News/Aggregate News), so the 'no recent news' branch fires reliably even when count is 0 -- previously zero articles meant Insert News/Aggregate News never ran at all, silently killing this check and the Telegram notification below."
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "articles",
+        "options": {}
+      },
+      "id": "a3000001-0001-4a11-9002-000000000001",
+      "name": "Split Out Articles",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [-6400, 128]
     },
     {
       "parameters": {
@@ -377,7 +406,7 @@
       "name": "Insert News",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [-6624, 224],
+      "position": [-6176, 128],
       "credentials": {
         "supabaseApi": { "id": "APCjwvwaP8MxdSLA", "name": "Supabase account 2" }
       },
@@ -397,24 +426,7 @@
       "name": "Aggregate News",
       "type": "n8n-nodes-base.aggregate",
       "typeVersion": 1,
-      "position": [-6400, 224]
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 1 },
-          "conditions": [
-            { "leftValue": "={{ ($json.title || []).length }}", "rightValue": 0, "operator": { "type": "number", "operation": "gt" } }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
-      },
-      "id": "faeb624f-53d2-46e2-8821-ac93ac6b00f4",
-      "name": "IF News Found",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [-6176, 224]
+      "position": [-5952, 128]
     },
     {
       "parameters": {
@@ -926,15 +938,16 @@
     "Clear Pending Resume URL": { "main": [[{ "node": "Telegram: Comment Approval Ack", "type": "main", "index": 0 }]] },
     "Keyword Context": { "main": [[{ "node": "Search Naver News", "type": "main", "index": 0 }]] },
     "Search Naver News": { "main": [[{ "node": "Parse & Split Articles", "type": "main", "index": 0 }]] },
-    "Parse & Split Articles": { "main": [[{ "node": "Insert News", "type": "main", "index": 0 }]] },
-    "Insert News": { "main": [[{ "node": "Aggregate News", "type": "main", "index": 0 }]] },
-    "Aggregate News": { "main": [[{ "node": "IF News Found", "type": "main", "index": 0 }]] },
+    "Parse & Split Articles": { "main": [[{ "node": "IF News Found", "type": "main", "index": 0 }]] },
     "IF News Found": {
       "main": [
-        [{ "node": "Build News Summary", "type": "main", "index": 0 }],
+        [{ "node": "Split Out Articles", "type": "main", "index": 0 }],
         [{ "node": "Telegram: No Recent News", "type": "main", "index": 0 }]
       ]
     },
+    "Split Out Articles": { "main": [[{ "node": "Insert News", "type": "main", "index": 0 }]] },
+    "Insert News": { "main": [[{ "node": "Aggregate News", "type": "main", "index": 0 }]] },
+    "Aggregate News": { "main": [[{ "node": "Build News Summary", "type": "main", "index": 0 }]] },
     "Build News Summary": { "main": [[{ "node": "News Review Attempt", "type": "main", "index": 0 }]] },
     "News Review Attempt": { "main": [[{ "node": "Send Telegram News Review", "type": "main", "index": 0 }]] },
     "Send Telegram News Review": { "main": [[{ "node": "Store Pending Resume URL", "type": "main", "index": 0 }]] },
