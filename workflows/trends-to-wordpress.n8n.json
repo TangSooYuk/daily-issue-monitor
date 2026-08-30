@@ -653,10 +653,11 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [-3936, 0],
+      "alwaysOutputData": true,
       "credentials": {
         "httpBasicAuth": { "id": "REPLACE_WITH_YOUR_GABIA_BASIC_AUTH_CREDENTIAL_ID", "name": "Gabia" }
       },
-      "notes": "VERIFY IN UI: reconnect the 'Gabia' Basic Auth credential (Application Password) -- this and the 4 other new WordPress HTTP nodes all need it reselected after import. The User-Agent header is the confirmed fix for the 401 that blocked auto-publishing -- do not remove it from any of these 5 nodes."
+      "notes": "VERIFY IN UI: reconnect the 'Gabia' Basic Auth credential (Application Password) -- this and the 4 other new WordPress HTTP nodes all need it reselected after import. The User-Agent header is the confirmed fix for the 401 that blocked auto-publishing -- do not remove it from any of these 5 nodes. alwaysOutputData=true (Settings tab) is required: a genuinely empty search result ([]) would otherwise make n8n skip every downstream node entirely, silently killing the rest of the publish chain -- exactly what happened when no categories existed yet."
     },
     {
       "parameters": {
@@ -730,10 +731,11 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [-3264, 0],
+      "alwaysOutputData": true,
       "credentials": {
         "httpBasicAuth": { "id": "REPLACE_WITH_YOUR_GABIA_BASIC_AUTH_CREDENTIAL_ID", "name": "Gabia" }
       },
-      "notes": "Fetches all existing tags once (up to 100) -- matching against Claude's tags array happens in the next Code node, same fetch-all-then-filter pattern used elsewhere in this workflow. Both the 'found' (true) and 'not found' (false) branches of IF Category Found lead here."
+      "notes": "Fetches all existing tags once (up to 100) -- matching against Claude's tags array happens in the next Code node, same fetch-all-then-filter pattern used elsewhere in this workflow. Both the 'found' (true) and 'not found' (false) branches of IF Category Found lead here. alwaysOutputData=true (Settings tab) is required: on a fresh site with zero tags this call legitimately returns [], which would otherwise make n8n skip Resolve Tag IDs and everything after it."
     },
     {
       "parameters": {
