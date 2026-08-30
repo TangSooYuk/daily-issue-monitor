@@ -19,6 +19,19 @@
 
 **주의**: 재전송이 한 번이라도 일어나면, 이전 메시지의 승인/거절 버튼은 더 이상 유효하지 않습니다 (그 시점의 대기 인스턴스가 이미 지나갔기 때문). 항상 **가장 최근에 온 메시지**의 버튼을 눌러야 합니다.
 
+## v2.2 — 뉴스 검토 승인에 코멘트 추가 (신규)
+
+`Send Telegram News Review` 메시지를 받은 뒤, 버튼 대신 **텍스트로 답장**하면 코멘트를 함께 남길 수 있습니다.
+
+- `승인: 이번엔 좀 더 캐주얼한 톤으로 써줘` / `거절: 뉴스가 너무 오래됐어`
+- 코멘트 없이 그냥 `승인` / `거절`만 입력해도 동작 (기존 버튼과 동일하게 처리)
+- 남긴 코멘트는 Claude 프롬프트에 `[검토자 코멘트]`로 추가되어 초안 작성 시 반영됩니다
+- 기존 ✅/❌ 버튼은 그대로 유지되며, 코멘트 없이 빠르게 승인/거절할 때 계속 쓰시면 됩니다
+
+**동작 원리**: 뉴스 검토 메시지를 보낼 때마다(재전송 포함) 그 시점의 `$execution.resumeUrl`을 `trending_keywords.pending_review_resume_url` 컬럼에 저장해둡니다. 텍스트로 `승인`/`거절`이 오면 `Parse Approval Comment` → `Get Rows For Approval Lookup` → `Find Pending Resume URL` → `Resolve Pending Approval`(그 URL에 GET 요청) → `Clear Pending Resume URL` → `Telegram: Comment Approval Ack` 순서로 처리되어, 버튼을 누른 것과 동일하게 대기 중인 Wait 노드를 재개시킵니다.
+
+**선행 작업**: `db/004_add_pending_review_resume_url.sql`을 Supabase SQL Editor에서 실행해주세요.
+
 **v2.1부터 이 파일은 n8n에서 실제 export한 최종본("Daily Posting")을 베이스로 병합했습니다** — 크리덴셜 ID, 실제 chatId, `Mark Handled`의 filters 방식 등 UI에서 직접 잡으셨던 설정이 그대로 들어 있어 재import 시 크리덴셜을 다시 연결할 필요가 없습니다. 단, 이 저장소가 공개(public)라 `Search Naver News` 노드의 `X-NCP-APIGW-API-KEY-ID`/`X-NCP-APIGW-API-KEY` 값은 플레이스홀더로 바꿔뒀습니다 — **import 후 이 두 값만 실제 키로 다시 입력**해주세요.
 
 ## 무엇이 바뀌었나 (v1 대비)

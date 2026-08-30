@@ -292,6 +292,114 @@
     },
     {
       "parameters": {
+        "jsCode": "const message = $input.first().json.message;\nconst text = (message && message.text) || '';\nconst match = text.match(/^(승인|거절)\\s*[:\\-]?\\s*([\\s\\S]*)$/);\nif (!match) {\n  return []; // not an approval-style reply -- ignore (e.g. /post commands, unrelated chat)\n}\nconst decision = match[1] === '승인' ? 'approve' : 'reject';\nconst comment = match[2].trim() || null;\nreturn [{ json: { decision, comment } }];"
+      },
+      "id": "a1e1c001-0010-4a11-8001-000000000010",
+      "name": "Parse Approval Comment",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-384, 1100]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "trending_keywords",
+        "returnAll": true
+      },
+      "id": "a1e1c001-0011-4a11-8001-000000000011",
+      "name": "Get Rows For Approval Lookup",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [-128, 1100],
+      "credentials": {
+        "supabaseApi": {
+          "id": "APCjwvwaP8MxdSLA",
+          "name": "Supabase account 2"
+        }
+      },
+      "notes": "Fetches all rows -- filtering to the pending one happens in the next Code node, same pattern as Get Recently Posted."
+    },
+    {
+      "parameters": {
+        "jsCode": "const decision = $('Parse Approval Comment').item.json.decision;\nconst comment = $('Parse Approval Comment').item.json.comment;\nconst rows = $input.all().map(i => i.json);\nconst pending = rows.filter(r => r.pending_review_resume_url).sort((a, b) => b.id - a.id)[0];\nif (!pending) {\n  return []; // nothing currently waiting on a news-review approval -- ignore this reply\n}\nreturn [{ json: { decision, comment, resume_url: pending.pending_review_resume_url, id: pending.id } }];"
+      },
+      "id": "a1e1c001-0012-4a11-8001-000000000012",
+      "name": "Find Pending Resume URL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [144, 1100]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.resume_url }}&decision={{ $json.decision }}{{ $json.comment ? '&comment=' + encodeURIComponent($json.comment) : '' }}",
+        "options": {}
+      },
+      "id": "a1e1c001-0013-4a11-8001-000000000013",
+      "name": "Resolve Pending Approval",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [400, 1100],
+      "notes": "Same mechanism as the inline keyboard buttons (a GET to $execution.resumeUrl), just triggered from a typed reply instead of a button click. If this errors, most likely the Wait instance already resumed (button was clicked first) or the retry loop moved past it -- check onError below wasn't needed since a failure here just means the message came too late.",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "trending_keywords",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Find Pending Resume URL').item.json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "pending_review_resume_url",
+              "fieldValue": ""
+            }
+          ]
+        }
+      },
+      "id": "a1e1c001-0014-4a11-8001-000000000014",
+      "name": "Clear Pending Resume URL",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [672, 1100],
+      "credentials": {
+        "supabaseApi": {
+          "id": "APCjwvwaP8MxdSLA",
+          "name": "Supabase account 2"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "chatId": "624361524",
+        "text": "={{ $('Find Pending Resume URL').item.json.decision === 'approve' ? '✅ 코멘트 반영해서 초안 작성을 진행할게요.' : '❌ 거절 처리했습니다.' }}{{ $('Find Pending Resume URL').item.json.comment ? '\\n\\n남기신 코멘트: ' + $('Find Pending Resume URL').item.json.comment : '' }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "a1e1c001-0015-4a11-8001-000000000015",
+      "name": "Telegram: Comment Approval Ack",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [928, 1100],
+      "credentials": {
+        "telegramApi": {
+          "id": "7oxTl9ZzFfqBvEU2",
+          "name": "Telegram Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
         "jsCode": "// Single convergence point for Flow A (approved trend, arrives after a Wait node -- so $json/$input\n// at this point would just be the Telegram resume payload, NOT the keyword data) and Flow B (manual\n// /post, arrives directly with no Wait in between). Reference the real source explicitly by name.\nlet source;\ntry {\n  source = $('Pick Next Keyword').item.json;\n} catch (e) {\n  source = $('Insert Manual Keyword').item.json;\n}\nreturn [{\n  json: {\n    id: source.id,\n    keyword: source.keyword,\n    trend_link: source.trend_link || null\n  }\n}];"
       },
       "id": "150fd2a1-dbca-442c-b348-491be35a9ae7",
@@ -425,7 +533,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const keywordCtx = $('Keyword Context').item.json;\nconst agg = $input.first().json;\nconst titles = agg.title || [];\nconst urls = agg.url || [];\nconst newsLines = titles.map((t, i) => `${i + 1}. ${t}\\n   ${urls[i] || ''}`).join('\\n') || '(관련 뉴스 없음)';\n\nreturn [{\n  json: {\n    keyword: keywordCtx.keyword,\n    trend_link: keywordCtx.trend_link,\n    news_list: newsLines\n  }\n}];"
+        "jsCode": "const keywordCtx = $('Keyword Context').item.json;\nconst agg = $input.first().json;\nconst titles = agg.title || [];\nconst urls = agg.url || [];\nconst newsLines = titles.map((t, i) => `${i + 1}. ${t}\\n   ${urls[i] || ''}`).join('\\n') || '(관련 뉴스 없음)';\n\nreturn [{\n  json: {\n    id: keywordCtx.id,\n    keyword: keywordCtx.keyword,\n    trend_link: keywordCtx.trend_link,\n    news_list: newsLines\n  }\n}];"
       },
       "id": "9adbe0b7-98cf-43a2-8b36-faaba9326994",
       "name": "Build News Summary",
@@ -435,7 +543,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Loop entry point: reached either from Build News Summary (attempt starts at 1)\n// or from IF News Retry looping back (attempt already incremented).\nconst input = $input.first().json;\nreturn [{\n  json: {\n    keyword: input.keyword,\n    trend_link: input.trend_link,\n    news_list: input.news_list,\n    attempt: input.attempt || 1\n  }\n}];"
+        "jsCode": "// Loop entry point: reached either from Build News Summary (attempt starts at 1)\n// or from IF News Retry looping back (attempt already incremented).\nconst input = $input.first().json;\nreturn [{\n  json: {\n    id: input.id,\n    keyword: input.keyword,\n    trend_link: input.trend_link,\n    news_list: input.news_list,\n    attempt: input.attempt || 1\n  }\n}];"
       },
       "id": "a1e1c001-0005-4a11-8001-000000000005",
       "name": "News Review Attempt",
@@ -490,6 +598,42 @@
     },
     {
       "parameters": {
+        "operation": "update",
+        "tableId": "trending_keywords",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('News Review Attempt').item.json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "pending_review_resume_url",
+              "fieldValue": "={{ $execution.resumeUrl }}"
+            }
+          ]
+        }
+      },
+      "id": "a1e1c001-0009-4a11-8001-000000000009",
+      "name": "Store Pending Resume URL",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [4640, 200],
+      "credentials": {
+        "supabaseApi": {
+          "id": "APCjwvwaP8MxdSLA",
+          "name": "Supabase account 2"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "notes": "Persists this attempt's resume URL so a free-text '승인: 코멘트' Telegram reply can resume this exact Wait instance later. Runs on every retry attempt, so it always holds the latest live resume URL."
+    },
+    {
+      "parameters": {
         "resume": "webhook",
         "limitWaitTime": true,
         "limitType": "afterTimeInterval",
@@ -507,7 +651,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const attemptData = $('News Review Attempt').item.json;\nconst hasDecision = $json.query && typeof $json.query.decision !== 'undefined';\n\nif (hasDecision) {\n  return [{\n    json: {\n      ...attemptData,\n      outcome: $json.query.decision === 'approve' ? 'proceed' : 'rejected'\n    }\n  }];\n}\n\nconst MAX_ATTEMPTS = 5;\nif (attemptData.attempt >= MAX_ATTEMPTS) {\n  return [{ json: { ...attemptData, outcome: 'proceed', auto_approved: true } }];\n}\nreturn [{ json: { ...attemptData, attempt: attemptData.attempt + 1, outcome: 'retry' } }];"
+        "jsCode": "const attemptData = $('News Review Attempt').item.json;\nconst hasDecision = $json.query && typeof $json.query.decision !== 'undefined';\n\nif (hasDecision) {\n  return [{\n    json: {\n      ...attemptData,\n      outcome: $json.query.decision === 'approve' ? 'proceed' : 'rejected',\n      comment: $json.query.comment || null\n    }\n  }];\n}\n\nconst MAX_ATTEMPTS = 5;\nif (attemptData.attempt >= MAX_ATTEMPTS) {\n  return [{ json: { ...attemptData, outcome: 'proceed', auto_approved: true, comment: null } }];\n}\nreturn [{ json: { ...attemptData, attempt: attemptData.attempt + 1, outcome: 'retry' } }];"
       },
       "id": "a1e1c001-0006-4a11-8001-000000000006",
       "name": "Evaluate News Review",
@@ -616,7 +760,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ model: \"claude-sonnet-5\", max_tokens: 4096, tools: [{ name: \"blog_draft\", description: \"워드프레스에 바로 등록 가능한 블로그 초안 생성\", input_schema: { type: \"object\", properties: { title: { type: \"string\" }, body_html: { type: \"string\" }, excerpt: { type: \"string\" }, tags: { type: \"array\", items: { type: \"string\" } }, category: { type: \"string\", enum: [\"정치\", \"경제\", \"사회\", \"생활/문화\", \"IT/과학\", \"연예\", \"스포츠\", \"국제\", \"기타\"] }, meta_description: { type: \"string\" } }, required: [\"title\", \"body_html\", \"excerpt\", \"tags\", \"category\", \"meta_description\"] } }], tool_choice: { type: \"tool\", name: \"blog_draft\" }, messages: [{ role: \"user\", content: `지금 화제인 키워드: ${$('Build News Summary').item.json.keyword}\\n\\n관련 뉴스:\\n${$('Build News Summary').item.json.news_list}\\n\\nGoogle Trends 원본 링크: ${$('Build News Summary').item.json.trend_link}\\n\\n위 내용을 참고해서 이 키워드를 자연스럽게 다루는 한국어 블로그 글을 작성해줘.\\n\\n작성 지침:\\n- 도입부는 '~가 화제인 이유는', '~에 대해 알아보겠습니다' 같은 상투적이고 AI스러운 문장으로 시작하지 마. 매번 다른 각도로 -- 최근 반응, 지금 분위기, 사람들이 주목하는 포인트 등 -- 자연스럽게 짚으면서 이 키워드로 시작해줘. 매 포스팅마다 도입부 스타일을 다르게 해줘.\\n- body_html 끝부분은 부가 설명이 아니라 글의 흐름을 자연스럽게 마무리하는 문단으로 끝내고, 참고한 뉴스 출처 링크를 그 안에 자연스럽게 언급해줘.\\n- excerpt는 워드프레스 발췌문(글 목록/공유 시 노출)으로 쓸 1~2문장짜리 짧고 흥미로운 요약을 작성해줘.\\n- meta_description은 본문에는 노출되지 않는 검색엔진용 요약(150자 내외)으로 따로 작성해줘. excerpt와는 톤이 달라도 돼.\\n- category는 정치/경제/사회/생활문화/IT과학/연예/스포츠/국제/기타 중 이 포스팅에 가장 맞는 하나로 골라줘.` }] }) }}",
+        "jsonBody": "={{ JSON.stringify({ model: \"claude-sonnet-5\", max_tokens: 4096, tools: [{ name: \"blog_draft\", description: \"워드프레스에 바로 등록 가능한 블로그 초안 생성\", input_schema: { type: \"object\", properties: { title: { type: \"string\" }, body_html: { type: \"string\" }, excerpt: { type: \"string\" }, tags: { type: \"array\", items: { type: \"string\" } }, category: { type: \"string\", enum: [\"정치\", \"경제\", \"사회\", \"생활/문화\", \"IT/과학\", \"연예\", \"스포츠\", \"국제\", \"기타\"] }, meta_description: { type: \"string\" } }, required: [\"title\", \"body_html\", \"excerpt\", \"tags\", \"category\", \"meta_description\"] } }], tool_choice: { type: \"tool\", name: \"blog_draft\" }, messages: [{ role: \"user\", content: (() => { const base = `지금 화제인 키워드: ${$('Build News Summary').item.json.keyword}\\n\\n관련 뉴스:\\n${$('Build News Summary').item.json.news_list}\\n\\nGoogle Trends 원본 링크: ${$('Build News Summary').item.json.trend_link}\\n\\n위 내용을 참고해서 이 키워드를 자연스럽게 다루는 한국어 블로그 글을 작성해줘.\\n\\n작성 지침:\\n- 도입부는 '~가 화제인 이유는', '~에 대해 알아보겠습니다' 같은 상투적이고 AI스러운 문장으로 시작하지 마. 매번 다른 각도로 -- 최근 반응, 지금 분위기, 사람들이 주목하는 포인트 등 -- 자연스럽게 짚으면서 이 키워드로 시작해줘. 매 포스팅마다 도입부 스타일을 다르게 해줘.\\n- body_html 끝부분은 부가 설명이 아니라 글의 흐름을 자연스럽게 마무리하는 문단으로 끝내고, 참고한 뉴스 출처 링크를 그 안에 자연스럽게 언급해줘.\\n- excerpt는 워드프레스 발췌문(글 목록/공유 시 노출)으로 쓸 1~2문장짜리 짧고 흥미로운 요약을 작성해줘.\\n- meta_description은 본문에는 노출되지 않는 검색엔진용 요약(150자 내외)으로 따로 작성해줘. excerpt와는 톤이 달라도 돼.\\n- category는 정치/경제/사회/생활문화/IT과학/연예/스포츠/국제/기타 중 이 포스팅에 가장 맞는 하나로 골라줘.`; const comment = $('Evaluate News Review').item.json.comment; return comment ? base + `\\n\\n[검토자 코멘트]\\n${comment}\\n위 코멘트 내용을 최대한 반영해서 작성해줘.` : base; })() }] }) }}",
         "options": {}
       },
       "id": "10facaf0-a5f5-4490-b0a4-bf6d346261c9",
@@ -787,13 +931,31 @@
       ]
     },
     "Telegram Trigger (Manual Keyword)": {
-      "main": [[{ "node": "Parse Manual Keyword", "type": "main", "index": 0 }]]
+      "main": [[
+        { "node": "Parse Manual Keyword", "type": "main", "index": 0 },
+        { "node": "Parse Approval Comment", "type": "main", "index": 0 }
+      ]]
     },
     "Parse Manual Keyword": {
       "main": [[{ "node": "Insert Manual Keyword", "type": "main", "index": 0 }]]
     },
     "Insert Manual Keyword": {
       "main": [[{ "node": "Keyword Context", "type": "main", "index": 0 }]]
+    },
+    "Parse Approval Comment": {
+      "main": [[{ "node": "Get Rows For Approval Lookup", "type": "main", "index": 0 }]]
+    },
+    "Get Rows For Approval Lookup": {
+      "main": [[{ "node": "Find Pending Resume URL", "type": "main", "index": 0 }]]
+    },
+    "Find Pending Resume URL": {
+      "main": [[{ "node": "Resolve Pending Approval", "type": "main", "index": 0 }]]
+    },
+    "Resolve Pending Approval": {
+      "main": [[{ "node": "Clear Pending Resume URL", "type": "main", "index": 0 }]]
+    },
+    "Clear Pending Resume URL": {
+      "main": [[{ "node": "Telegram: Comment Approval Ack", "type": "main", "index": 0 }]]
     },
     "Keyword Context": {
       "main": [[{ "node": "Search Naver News", "type": "main", "index": 0 }]]
@@ -823,6 +985,9 @@
       "main": [[{ "node": "Send Telegram News Review", "type": "main", "index": 0 }]]
     },
     "Send Telegram News Review": {
+      "main": [[{ "node": "Store Pending Resume URL", "type": "main", "index": 0 }]]
+    },
+    "Store Pending Resume URL": {
       "main": [[{ "node": "Wait News Review", "type": "main", "index": 0 }]]
     },
     "Wait News Review": {
