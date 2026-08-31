@@ -1017,7 +1017,7 @@
       ],
       "alwaysOutputData": true,
       "onError": "continueRegularOutput",
-      "notes": "Fetches the raw HTML of the first news article used for this post, so its og:image meta tag can be reused as the featured image (per user preference: featured image should come from the actual news article, not stock photos). onError=continueRegularOutput + alwaysOutputData=true so a blocked/failed fetch falls through to the Pexels fallback below instead of killing the run. COPYRIGHT NOTE: this reuses a news outlet's own photo -- fine for this personal/experimental stage, but reconsider before scaling up or applying for ad monetization."
+      "notes": "Fetches the raw HTML of the first news article used for this post, so its og:image meta tag can be reused as BODY IMAGE 1 (not the featured image -- keeping the news outlet's own photo out of the prominently-displayed featured-image slot, and only using it once inline, limits copyright exposure while still honoring the 'one image should be from the article' request). onError=continueRegularOutput + alwaysOutputData=true so a blocked/failed fetch falls through to the Pexels fallback below instead of killing the run. COPYRIGHT NOTE: still reuses a news outlet's own photo for one inline image -- fine for this personal/experimental stage, but reconsider before scaling up or applying for ad monetization."
     },
     {
       "parameters": {
@@ -1051,7 +1051,7 @@
         -8496,
         320
       ],
-      "notes": "true -> use the news article's own og:image as the featured image. false (article fetch blocked/failed, or no og:image tag) -> falls back to a Pexels search below."
+      "notes": "true -> use the news article's own og:image as body image 1. false (article fetch blocked/failed, or no og:image tag) -> falls back to a Pexels search (Search Pexels Image B1) instead."
     },
     {
       "parameters": {
@@ -1076,7 +1076,7 @@
         128
       ],
       "alwaysOutputData": true,
-      "notes": "FALLBACK ONLY -- only runs when the news article had no usable og:image (see IF OG Image Found). Reuses the first of Claude's body_image_keywords as the search query. VERIFY IN UI: get a free API key at https://www.pexels.com/api/ and paste it into the Authorization header (raw key, no 'Bearer' prefix). alwaysOutputData=true so a zero-result search doesn't skip the rest of the publish chain."
+      "notes": "Featured image search -- runs unconditionally, always Pexels (never the news article's own photo), to keep the prominently-displayed featured-image slot copyright-safe. Uses the first of Claude's body_image_keywords as the search query. VERIFY IN UI: get a free API key at https://www.pexels.com/api/ and paste it into the Authorization header (raw key, no 'Bearer' prefix). alwaysOutputData=true so a zero-result search doesn't skip the rest of the publish chain."
     },
     {
       "parameters": {
@@ -1154,7 +1154,7 @@
         48
       ],
       "credentials": { "httpBasicAuth": { "id": "1ZP4HbtbBkA6d5Z4", "name": "Gabia" } },
-      "notes": "VERIFY IN UI: reconnect the 'Gabia' Basic Auth credential like the other WordPress nodes. Uploads the downloaded binary (from the news article's og:image, or the Pexels fallback) to the media library; response's 'id' becomes the post's featured_media."
+      "notes": "VERIFY IN UI: reconnect the 'Gabia' Basic Auth credential like the other WordPress nodes. Uploads the downloaded Pexels photo to the media library; response's 'id' becomes the post's featured_media. Always Pexels-sourced, never the news article's own photo -- see 'Search Pexels Image' notes."
     },
     {
       "parameters": {
@@ -1187,7 +1187,7 @@
         320
       ],
       "alwaysOutputData": true,
-      "notes": "First of the two body_image_keywords Claude generated. alwaysOutputData=true so a zero-result search doesn't block the rest of the publish chain."
+      "notes": "FALLBACK ONLY for body image 1 -- only runs when the news article had no usable og:image (see IF OG Image Found's false branch). Reuses the first of Claude's body_image_keywords as the search query. alwaysOutputData=true so a zero-result search doesn't block the rest of the publish chain."
     },
     {
       "parameters": {
@@ -2236,7 +2236,7 @@
       "main": [
         [
           {
-            "node": "Fetch First Article Page",
+            "node": "Search Pexels Image",
             "type": "main",
             "index": 0
           }
@@ -2269,14 +2269,14 @@
       "main": [
         [
           {
-            "node": "Download Featured Image",
+            "node": "Download Body Image 1",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Search Pexels Image",
+            "node": "Search Pexels Image B1",
             "type": "main",
             "index": 0
           }
@@ -2349,7 +2349,7 @@
       "main": [
         [
           {
-            "node": "Search Pexels Image B1",
+            "node": "Fetch First Article Page",
             "type": "main",
             "index": 0
           }
