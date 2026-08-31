@@ -1,6 +1,15 @@
 # trends-to-wordpress.n8n.json (v2 — Telegram 승인 + 수동 키워드 + 반복 방지)
 
-## v2.6 — 대표 이미지 자동 첨부, 키워드 연관 검색 (신규)
+## v2.7 — 대표 이미지는 뉴스 기사에서, 본문 이미지 2장 자동 삽입 (신규)
+
+- **대표 이미지 소스 변경**: 이제 `Fetch First Article Page`가 이번 포스팅에 쓰인 첫 번째 뉴스 기사 원문 페이지를 가져오고, `Extract OG Image`가 그 페이지의 `og:image` 메타태그를 정규식으로 추출합니다. `IF OG Image Found`가 성공하면 그 이미지를 그대로 대표 이미지로 쓰고, 실패(사이트 차단, og:image 없음 등)하면 기존 Pexels 검색으로 자동 대체됩니다. **주의**: 언론사 소유 이미지를 그대로 재사용하는 것이라 저작권 리스크가 있습니다 — 개인 실험 단계라 진행하지만, 트래픽이 늘거나 AdSense 심사를 받을 시점에는 재검토가 필요합니다.
+- **본문 이미지 2장 추가**: `Claude Draft`의 `image_keywords`(단일 문자열) 필드가 `body_image_keywords`(정확히 2개짜리 영어 키워드 배열)로 바뀌었습니다. 각각 Pexels에서 검색 → 다운로드 → 워드프레스 미디어 업로드까지 독립적으로 진행되는 두 체인(`Search/Select/IF/Download/Upload ... B1`, `... B2`)이 있고, 한쪽이 실패해도 다른 쪽 시도를 막지 않도록 설계했습니다 (`IF Image Found B1`의 false 분기가 `Search Pexels Image B2`로 바로 이어짐).
+- **`Insert Body Images`**가 두 이미지의 업로드 결과를 `$('Upload Body Image 1'/'2')`를 try/catch로 조회해서(둘 다, 하나만, 또는 둘 다 없어도 안전하게 동작), `body_html`을 문단(`</p>`) 기준으로 나눠 1/3·2/3 지점에 `<figure><img></figure>`로 삽입합니다. `Publish WordPress`는 이제 `Parse Claude Response`가 아니라 이 노드의 `body_html`을 사용합니다.
+- Claude에게는 여전히 본문에 직접 `<img>` 태그나 이미지 자리표시를 넣지 말라고 명시(v2.6에서 추가한 지침 유지) — 이미지 삽입은 전적으로 워크플로우가 프로그래밍적으로 처리합니다.
+
+**⚠️ Import 후 필수**: `Search Pexels Image`(대표 이미지 실패시 대체용), `Search Pexels Image B1`, `Search Pexels Image B2` 세 노드 모두 `Authorization` 헤더에 Pexels API 키를 넣어야 합니다. `Upload Featured Image to WordPress`, `Upload Body Image 1`, `Upload Body Image 2` 세 노드 모두 "Gabia" Basic Auth 크리덴셜을 재선택해야 합니다.
+
+## v2.6 — 대표 이미지 자동 첨부, 키워드 연관 검색
 
 `Parse Claude Response`와 `Search WP Category` 사이에 Pexels 무료 스톡 사진 API를 이용한 대표 이미지 체인을 추가했습니다.
 

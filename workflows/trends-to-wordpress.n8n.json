@@ -970,7 +970,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ model: \"claude-sonnet-5\", max_tokens: 4096, tools: [{ name: \"blog_draft\", description: \"워드프레스에 바로 등록 가능한 블로그 초안 생성\", input_schema: { type: \"object\", properties: { title: { type: \"string\" }, body_html: { type: \"string\" }, excerpt: { type: \"string\" }, tags: { type: \"array\", items: { type: \"string\" } }, category: { type: \"string\", enum: [\"정치\", \"경제\", \"사회\", \"생활/문화\", \"IT/과학\", \"연예\", \"스포츠\", \"국제\", \"기타\"] }, meta_description: { type: \"string\" }, image_keywords: { type: \"string\" } }, required: [\"title\", \"body_html\", \"excerpt\", \"tags\", \"category\", \"meta_description\", \"image_keywords\"] } }], tool_choice: { type: \"tool\", name: \"blog_draft\" }, messages: [{ role: \"user\", content: (() => { const base = `지금 화제인 키워드: ${$('Build News Summary').first().json.keyword}\\n\\n관련 뉴스:\\n${$('Build News Summary').first().json.news_list}\\n\\nGoogle Trends 원본 링크: ${$('Build News Summary').first().json.trend_link}\\n\\n위 내용을 참고해서 이 키워드를 자연스럽게 다루는 한국어 블로그 글을 작성해줘.\\n\\n작성 지침:\\n- 도입부는 '~가 화제인 이유는', '~에 대해 알아보겠습니다' 같은 상투적이고 AI스러운 문장으로 시작하지 마. 매번 다른 각도로 -- 최근 반응, 지금 분위기, 사람들이 주목하는 포인트 등 -- 자연스럽게 짚으면서 이 키워드로 시작해줘. 매 포스팅마다 도입부 스타일을 다르게 해줘.\\n- body_html 끝부분은 부가 설명이 아니라 글의 흐름을 자연스럽게 마무리하는 문단으로 끝내고, 참고한 뉴스 출처 링크를 그 안에 자연스럽게 언급해줘.\\n- excerpt는 워드프레스 발췌문(글 목록/공유 시 노출)으로 쓸 1~2문장짜리 짧고 흥미로운 요약을 작성해줘.\\n- meta_description은 본문에는 노출되지 않는 검색엔진용 요약(150자 내외)으로 따로 작성해줘. excerpt와는 톤이 달라도 돼.\\n- category는 정치/경제/사회/생활문화/IT과학/연예/스포츠/국제/기타 중 이 포스팅에 가장 맞는 하나로 골라줘.\\n- image_keywords는 이 글의 대표 이미지를 무료 스톡 사진 사이트(Pexels)에서 검색할 때 쓸 2~4개의 영어 단어야. 이 포스팅의 핵심 소재/키워드와 시각적으로 실제 연관된 장면을 표현해줘 (카테고리 수준의 뭉뚱그린 단어 말고, 이 기사가 다루는 대상·장소·상황을 구체적으로). 단, Pexels는 실존 인물 이름이나 한국 고유명사로는 검색이 안 되니, 그런 경우 그 인물/사안이 속한 상황을 묘사하는 일반적인 영어 단어로 바꿔서 표현해줘 (예: '손흥민 부상' -> 'soccer player injury field', '비트코인 급등' -> 'cryptocurrency finance chart growth', 'OO아파트 붕괴' -> 'apartment building collapse construction').\\n- body_html 안에는 <img> 태그나 '[사진: ...]', '(이미지: ...)' 같은 이미지 자리표시·캡션을 절대 넣지 마. 대표 이미지는 이 워크플로우가 별도로 자동 첨부하니, 본문은 순수 텍스트(문단과 필요한 경우 소제목 정도)로만 작성해줘.\\n- 절대 뉴스 기사를 단순히 요약만 하지 마. 이 사안이 왜 지금 화제인지에 대한 배경, 앞으로 어떻게 흘러갈지에 대한 전망, 비슷한 과거 사례와의 비교, 이게 독자에게 왜 중요한지 같은 너만의 관점과 분석을 최소 한두 문단 이상 담아줘. 기사 내용을 재배열한 것처럼 읽히면 안 되고, 읽고 나서 뭔가 새로운 통찰을 얻었다는 느낌이 들어야 해.`; const comment = $('Evaluate News Review').first().json.comment; return comment ? base + `\\n\\n[검토자 코멘트]\\n${comment}\\n위 코멘트 내용을 최대한 반영해서 작성해줘.` : base; })() }] }) }}",
+        "jsonBody": "={{ JSON.stringify({ model: \"claude-sonnet-5\", max_tokens: 4096, tools: [{ name: \"blog_draft\", description: \"워드프레스에 바로 등록 가능한 블로그 초안 생성\", input_schema: { type: \"object\", properties: { title: { type: \"string\" }, body_html: { type: \"string\" }, excerpt: { type: \"string\" }, tags: { type: \"array\", items: { type: \"string\" } }, category: { type: \"string\", enum: [\"정치\", \"경제\", \"사회\", \"생활/문화\", \"IT/과학\", \"연예\", \"스포츠\", \"국제\", \"기타\"] }, meta_description: { type: \"string\" }, body_image_keywords: { type: \"array\", items: { type: \"string\" }, minItems: 2, maxItems: 2 } }, required: [\"title\", \"body_html\", \"excerpt\", \"tags\", \"category\", \"meta_description\", \"body_image_keywords\"] } }], tool_choice: { type: \"tool\", name: \"blog_draft\" }, messages: [{ role: \"user\", content: (() => { const base = `지금 화제인 키워드: ${$('Build News Summary').first().json.keyword}\\n\\n관련 뉴스:\\n${$('Build News Summary').first().json.news_list}\\n\\nGoogle Trends 원본 링크: ${$('Build News Summary').first().json.trend_link}\\n\\n위 내용을 참고해서 이 키워드를 자연스럽게 다루는 한국어 블로그 글을 작성해줘.\\n\\n작성 지침:\\n- 도입부는 '~가 화제인 이유는', '~에 대해 알아보겠습니다' 같은 상투적이고 AI스러운 문장으로 시작하지 마. 매번 다른 각도로 -- 최근 반응, 지금 분위기, 사람들이 주목하는 포인트 등 -- 자연스럽게 짚으면서 이 키워드로 시작해줘. 매 포스팅마다 도입부 스타일을 다르게 해줘.\\n- body_html 끝부분은 부가 설명이 아니라 글의 흐름을 자연스럽게 마무리하는 문단으로 끝내고, 참고한 뉴스 출처 링크를 그 안에 자연스럽게 언급해줘.\\n- excerpt는 워드프레스 발췌문(글 목록/공유 시 노출)으로 쓸 1~2문장짜리 짧고 흥미로운 요약을 작성해줘.\\n- meta_description은 본문에는 노출되지 않는 검색엔진용 요약(150자 내외)으로 따로 작성해줘. excerpt와는 톤이 달라도 돼.\\n- category는 정치/경제/사회/생활문화/IT과학/연예/스포츠/국제/기타 중 이 포스팅에 가장 맞는 하나로 골라줘.\\n- body_image_keywords는 본문 중간에 삽입할 사진 2장을 무료 스톡 사진 사이트(Pexels)에서 검색할 때 쓸 영어 키워드 배열이야. 반드시 정확히 2개를 만들어줘, 각각 2~4단어. 이 글이 다루는 서로 다른 두 장면/측면을 표현해줘 (두 이미지가 같은 내용이면 안 됨 -- 예: 하나는 인물/상황, 다른 하나는 배경/장소). 카테고리 수준의 뭉뚱그린 단어 말고 이 기사의 구체적인 소재를 반영해줘. 단, Pexels는 실존 인물 이름이나 한국 고유명사로는 검색이 안 되니, 그런 경우 그 인물/사안이 속한 상황을 묘사하는 일반적인 영어 단어로 바꿔서 표현해줘 (예: '손흥민 부상' -> 'soccer player injury field', '비트코인 급등' -> 'cryptocurrency finance chart growth').\\n- body_html 안에는 <img> 태그나 '[사진: ...]', '(이미지: ...)' 같은 이미지 자리표시·캡션을 절대 넣지 마. 대표 이미지와 본문 이미지 모두 이 워크플로우가 별도로 자동 삽입하니, 본문은 순수 텍스트(문단과 필요한 경우 소제목 정도)로만 작성해줘.\\n- 절대 뉴스 기사를 단순히 요약만 하지 마. 이 사안이 왜 지금 화제인지에 대한 배경, 앞으로 어떻게 흘러갈지에 대한 전망, 비슷한 과거 사례와의 비교, 이게 독자에게 왜 중요한지 같은 너만의 관점과 분석을 최소 한두 문단 이상 담아줘. 기사 내용을 재배열한 것처럼 읽히면 안 되고, 읽고 나서 뭔가 새로운 통찰을 얻었다는 느낌이 들어야 해.`; const comment = $('Evaluate News Review').first().json.comment; return comment ? base + `\\n\\n[검토자 코멘트]\\n${comment}\\n위 코멘트 내용을 최대한 반영해서 작성해줘.` : base; })() }] }) }}",
         "options": {}
       },
       "id": "8fd2a2e7-df10-4ea6-9cb2-400dd4474e5f",
@@ -1004,7 +1004,58 @@
     },
     {
       "parameters": {
-        "url": "=https://api.pexels.com/v1/search?query={{ encodeURIComponent($json.image_keywords || 'news background') }}&per_page=1&orientation=landscape",
+        "url": "={{ $('Aggregate News').first().json.url[0] }}",
+        "options": { "response": { "response": { "responseFormat": "text" } } }
+      },
+      "id": "b0000004-0001-4a11-9401-000000000001",
+      "name": "Fetch First Article Page",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -8944,
+        320
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "notes": "Fetches the raw HTML of the first news article used for this post, so its og:image meta tag can be reused as the featured image (per user preference: featured image should come from the actual news article, not stock photos). onError=continueRegularOutput + alwaysOutputData=true so a blocked/failed fetch falls through to the Pexels fallback below instead of killing the run. COPYRIGHT NOTE: this reuses a news outlet's own photo -- fine for this personal/experimental stage, but reconsider before scaling up or applying for ad monetization."
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst html = typeof item === 'string' ? item : (item.data || '');\nconst patterns = [\n  /<meta[^>]+property=[\"']og:image[\"'][^>]*content=[\"']([^\"']+)[\"']/i,\n  /<meta[^>]+content=[\"']([^\"']+)[\"'][^>]*property=[\"']og:image[\"']/i\n];\nlet imageUrl = null;\nfor (const re of patterns) {\n  const m = html.match(re);\n  if (m) { imageUrl = m[1]; break; }\n}\nreturn [{ json: { found: !!imageUrl, imageUrl } }];"
+      },
+      "id": "b0000004-0002-4a11-9401-000000000002",
+      "name": "Extract OG Image",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -8720,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 1 },
+          "conditions": [
+            { "leftValue": "={{ $json.found ? 'true' : 'false' }}", "rightValue": "true", "operator": { "type": "string", "operation": "equals" } }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b0000004-0003-4a11-9401-000000000003",
+      "name": "IF OG Image Found",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -8496,
+        320
+      ],
+      "notes": "true -> use the news article's own og:image as the featured image. false (article fetch blocked/failed, or no og:image tag) -> falls back to a Pexels search below."
+    },
+    {
+      "parameters": {
+        "url": "=https://api.pexels.com/v1/search?query={{ encodeURIComponent(($('Parse Claude Response').first().json.body_image_keywords || [])[0] || 'news background') }}&per_page=1&orientation=landscape",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -1025,7 +1076,7 @@
         128
       ],
       "alwaysOutputData": true,
-      "notes": "VERIFY IN UI: get a free API key at https://www.pexels.com/api/ and paste it into the Authorization header (raw key, no 'Bearer' prefix). Query comes directly from Claude's image_keywords (content-relevant, not just category) -- see Claude Draft's prompt. alwaysOutputData=true so a zero-result search doesn't skip the rest of the publish chain."
+      "notes": "FALLBACK ONLY -- only runs when the news article had no usable og:image (see IF OG Image Found). Reuses the first of Claude's body_image_keywords as the search query. VERIFY IN UI: get a free API key at https://www.pexels.com/api/ and paste it into the Authorization header (raw key, no 'Bearer' prefix). alwaysOutputData=true so a zero-result search doesn't skip the rest of the publish chain."
     },
     {
       "parameters": {
@@ -1067,7 +1118,7 @@
         "options": { "response": { "response": { "responseFormat": "file" } } }
       },
       "id": "b0000003-0004-4a11-9301-000000000004",
-      "name": "Download Pexels Image",
+      "name": "Download Featured Image",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -1095,7 +1146,7 @@
         "options": {}
       },
       "id": "b0000003-0005-4a11-9301-000000000005",
-      "name": "Upload Image to WordPress",
+      "name": "Upload Featured Image to WordPress",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -1103,11 +1154,11 @@
         48
       ],
       "credentials": { "httpBasicAuth": { "id": "1ZP4HbtbBkA6d5Z4", "name": "Gabia" } },
-      "notes": "VERIFY IN UI: reconnect the 'Gabia' Basic Auth credential like the other WordPress nodes. Uploads the downloaded binary directly to the media library; response's 'id' becomes the post's featured_media."
+      "notes": "VERIFY IN UI: reconnect the 'Gabia' Basic Auth credential like the other WordPress nodes. Uploads the downloaded binary (from the news article's og:image, or the Pexels fallback) to the media library; response's 'id' becomes the post's featured_media."
     },
     {
       "parameters": {
-        "jsCode": "// Reached from either IF Image Found's true branch (Upload Image to WordPress's\n// response, which has an 'id') or its false branch (the {found:false} passthrough,\n// which has no 'id') -- either way, exactly one item arrives here.\nconst item = $input.first().json;\nreturn [{ json: { featured_media: item.id || 0 } }];"
+        "jsCode": "// Reached from either Upload Featured Image to WordPress's response (has an 'id')\n// or IF Image Found's false branch (the {found:false} passthrough, no 'id') --\n// either way, exactly one item arrives here.\nconst item = $input.first().json;\nreturn [{ json: { featured_media: item.id || 0 } }];"
       },
       "id": "b0000003-0006-4a11-9301-000000000006",
       "name": "Finalize Featured Media",
@@ -1117,6 +1168,216 @@
         -7824,
         128
       ]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.pexels.com/v1/search?query={{ encodeURIComponent(($('Parse Claude Response').first().json.body_image_keywords || [])[0] || 'news background') }}&per_page=1&orientation=landscape",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [ { "name": "Authorization", "value": "REPLACE_WITH_YOUR_PEXELS_API_KEY" } ]
+        },
+        "options": {}
+      },
+      "id": "b0000005-0001-4a11-9501-000000000001",
+      "name": "Search Pexels Image B1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -7600,
+        320
+      ],
+      "alwaysOutputData": true,
+      "notes": "First of the two body_image_keywords Claude generated. alwaysOutputData=true so a zero-result search doesn't block the rest of the publish chain."
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nconst photo = (response.photos || [])[0];\nif (!photo) {\n  return [{ json: { found: false } }];\n}\nreturn [{ json: { found: true, imageUrl: photo.src.large2x || photo.src.original } }];"
+      },
+      "id": "b0000005-0002-4a11-9501-000000000002",
+      "name": "Select Pexels Photo B1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -7376,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 1 },
+          "conditions": [
+            { "leftValue": "={{ $json.found ? 'true' : 'false' }}", "rightValue": "true", "operator": { "type": "string", "operation": "equals" } }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b0000005-0003-4a11-9501-000000000003",
+      "name": "IF Image Found B1",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -7152,
+        320
+      ],
+      "notes": "false branch skips straight to Search Pexels Image B2 -- body image 1 failing must never block body image 2 from being attempted, and must never block publishing."
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.imageUrl }}",
+        "options": { "response": { "response": { "responseFormat": "file" } } }
+      },
+      "id": "b0000005-0004-4a11-9501-000000000004",
+      "name": "Download Body Image 1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -6928,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://deohaam.com/wp-json/wp/v2/media",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "User-Agent", "value": "curl/8.21.0" },
+            { "name": "Content-Disposition", "value": "attachment; filename=\"body-image-1.jpg\"" },
+            { "name": "Content-Type", "value": "image/jpeg" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "data",
+        "options": {}
+      },
+      "id": "b0000005-0005-4a11-9501-000000000005",
+      "name": "Upload Body Image 1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -6704,
+        240
+      ],
+      "credentials": { "httpBasicAuth": { "id": "1ZP4HbtbBkA6d5Z4", "name": "Gabia" } },
+      "notes": "VERIFY IN UI: reconnect the 'Gabia' Basic Auth credential. Response's source_url is read by 'Insert Body Images' via $('Upload Body Image 1') -- that lookup throws (caught) if this node never ran, which is how Insert Body Images knows this image is unavailable."
+    },
+    {
+      "parameters": {
+        "url": "=https://api.pexels.com/v1/search?query={{ encodeURIComponent(($('Parse Claude Response').first().json.body_image_keywords || [])[1] || 'news background') }}&per_page=1&orientation=landscape",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [ { "name": "Authorization", "value": "REPLACE_WITH_YOUR_PEXELS_API_KEY" } ]
+        },
+        "options": {}
+      },
+      "id": "b0000006-0001-4a11-9601-000000000001",
+      "name": "Search Pexels Image B2",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -6480,
+        320
+      ],
+      "alwaysOutputData": true,
+      "notes": "Second of the two body_image_keywords Claude generated. Reached from BOTH Upload Body Image 1's success path and IF Image Found B1's false path -- runs regardless of whether body image 1 succeeded."
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nconst photo = (response.photos || [])[0];\nif (!photo) {\n  return [{ json: { found: false } }];\n}\nreturn [{ json: { found: true, imageUrl: photo.src.large2x || photo.src.original } }];"
+      },
+      "id": "b0000006-0002-4a11-9601-000000000002",
+      "name": "Select Pexels Photo B2",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -6256,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 1 },
+          "conditions": [
+            { "leftValue": "={{ $json.found ? 'true' : 'false' }}", "rightValue": "true", "operator": { "type": "string", "operation": "equals" } }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b0000006-0003-4a11-9601-000000000003",
+      "name": "IF Image Found B2",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -6032,
+        320
+      ],
+      "notes": "false branch skips straight to Insert Body Images -- a missing body image 2 must never block publishing."
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.imageUrl }}",
+        "options": { "response": { "response": { "responseFormat": "file" } } }
+      },
+      "id": "b0000006-0004-4a11-9601-000000000004",
+      "name": "Download Body Image 2",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -5808,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://deohaam.com/wp-json/wp/v2/media",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "User-Agent", "value": "curl/8.21.0" },
+            { "name": "Content-Disposition", "value": "attachment; filename=\"body-image-2.jpg\"" },
+            { "name": "Content-Type", "value": "image/jpeg" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "data",
+        "options": {}
+      },
+      "id": "b0000006-0005-4a11-9601-000000000005",
+      "name": "Upload Body Image 2",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -5584,
+        240
+      ],
+      "credentials": { "httpBasicAuth": { "id": "1ZP4HbtbBkA6d5Z4", "name": "Gabia" } },
+      "notes": "VERIFY IN UI: reconnect the 'Gabia' Basic Auth credential."
+    },
+    {
+      "parameters": {
+        "jsCode": "const bodyHtml = $('Parse Claude Response').first().json.body_html;\n\nlet img1 = null, img2 = null;\ntry { img1 = $('Upload Body Image 1').first().json.source_url; } catch (e) {}\ntry { img2 = $('Upload Body Image 2').first().json.source_url; } catch (e) {}\nconst images = [img1, img2].filter(Boolean);\n\nif (images.length === 0) {\n  return [{ json: { body_html: bodyHtml } }];\n}\n\n// Split right after each closing </p> so images land between paragraphs, not mid-sentence.\nconst paragraphs = bodyHtml.split(/(?<=<\\/p>)/i).filter(p => p.trim());\nconst total = paragraphs.length;\nconst buildImg = (url) => `<figure class=\"wp-block-image\"><img src=\"${url}\" alt=\"\" /></figure>`;\n\nif (images.length === 1 || total < 3) {\n  const at = Math.max(1, Math.floor(total / 2));\n  paragraphs.splice(at, 0, buildImg(images[0]));\n} else {\n  const at1 = Math.max(1, Math.floor(total / 3));\n  const at2 = Math.max(at1 + 1, Math.floor((total * 2) / 3));\n  paragraphs.splice(at2, 0, buildImg(images[1]));\n  paragraphs.splice(at1, 0, buildImg(images[0]));\n}\n\nreturn [{ json: { body_html: paragraphs.join('') } }];"
+      },
+      "id": "b0000007-0001-4a11-9701-000000000001",
+      "name": "Insert Body Images",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -5360,
+        320
+      ],
+      "notes": "Reads Upload Body Image 1/2 via try/catch (same pattern as 'Keyword Context') -- if either node never ran (IF Image Found B1/B2 was false), the lookup throws and that image is simply skipped. Places 1 or 2 images evenly between paragraphs; falls back to a single mid-point insertion if only one image resolved or the article is too short (<3 paragraphs) to space two out meaningfully."
     },
     {
       "parameters": {
@@ -1397,7 +1658,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ title: $('Parse Claude Response').first().json.title, content: $('Parse Claude Response').first().json.body_html, excerpt: $('Parse Claude Response').first().json.excerpt, status: \"draft\", categories: [(() => { const norm = $('Normalize Category Search').first().json; if (norm.found) return norm.id; try { return $('Create WP Category').first().json.id; } catch (e) { return null; } })()], tags: $('Finalize Tag IDs').first().json.tag_ids, featured_media: $('Finalize Featured Media').first().json.featured_media }) }}",
+        "jsonBody": "={{ JSON.stringify({ title: $('Parse Claude Response').first().json.title, content: $('Insert Body Images').first().json.body_html, excerpt: $('Parse Claude Response').first().json.excerpt, status: \"draft\", categories: [(() => { const norm = $('Normalize Category Search').first().json; if (norm.found) return norm.id; try { return $('Create WP Category').first().json.id; } catch (e) { return null; } })()], tags: $('Finalize Tag IDs').first().json.tag_ids, featured_media: $('Finalize Featured Media').first().json.featured_media }) }}",
         "options": {}
       },
       "id": "2339ad60-e83d-419f-92fa-61aaac56b0c8",
@@ -1975,6 +2236,46 @@
       "main": [
         [
           {
+            "node": "Fetch First Article Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch First Article Page": {
+      "main": [
+        [
+          {
+            "node": "Extract OG Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract OG Image": {
+      "main": [
+        [
+          {
+            "node": "IF OG Image Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF OG Image Found": {
+      "main": [
+        [
+          {
+            "node": "Download Featured Image",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
             "node": "Search Pexels Image",
             "type": "main",
             "index": 0
@@ -2008,7 +2309,7 @@
       "main": [
         [
           {
-            "node": "Download Pexels Image",
+            "node": "Download Featured Image",
             "type": "main",
             "index": 0
           }
@@ -2022,18 +2323,18 @@
         ]
       ]
     },
-    "Download Pexels Image": {
+    "Download Featured Image": {
       "main": [
         [
           {
-            "node": "Upload Image to WordPress",
+            "node": "Upload Featured Image to WordPress",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Upload Image to WordPress": {
+    "Upload Featured Image to WordPress": {
       "main": [
         [
           {
@@ -2045,6 +2346,141 @@
       ]
     },
     "Finalize Featured Media": {
+      "main": [
+        [
+          {
+            "node": "Search Pexels Image B1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Pexels Image B1": {
+      "main": [
+        [
+          {
+            "node": "Select Pexels Photo B1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Select Pexels Photo B1": {
+      "main": [
+        [
+          {
+            "node": "IF Image Found B1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Image Found B1": {
+      "main": [
+        [
+          {
+            "node": "Download Body Image 1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Search Pexels Image B2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Body Image 1": {
+      "main": [
+        [
+          {
+            "node": "Upload Body Image 1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload Body Image 1": {
+      "main": [
+        [
+          {
+            "node": "Search Pexels Image B2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Pexels Image B2": {
+      "main": [
+        [
+          {
+            "node": "Select Pexels Photo B2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Select Pexels Photo B2": {
+      "main": [
+        [
+          {
+            "node": "IF Image Found B2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Image Found B2": {
+      "main": [
+        [
+          {
+            "node": "Download Body Image 2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Insert Body Images",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Body Image 2": {
+      "main": [
+        [
+          {
+            "node": "Upload Body Image 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload Body Image 2": {
+      "main": [
+        [
+          {
+            "node": "Insert Body Images",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Body Images": {
       "main": [
         [
           {
