@@ -141,7 +141,7 @@
       "parameters": {
         "resume": "webhook",
         "limitWaitTime": true,
-        "resumeAmount": "={{ $('Keyword Approval Attempt').item.json.attempt === 1 ? 3 : 5 }}",
+        "resumeAmount": "={{ $('Keyword Approval Attempt').first().json.attempt === 1 ? 3 : 5 }}",
         "resumeUnit": "minutes",
         "options": {}
       },
@@ -155,7 +155,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// $json here is either the Telegram webhook resume payload (button click) or,\n// if Wait's time limit fired first, a passthrough of whatever fed the Wait node --\n// so attempt/keyword data always comes from the named Keyword Approval Attempt node.\nconst attemptData = $('Keyword Approval Attempt').item.json;\nconst hasDecision = $json.query && typeof $json.query.decision !== 'undefined';\n\nif (hasDecision) {\n  return [{\n    json: {\n      ...attemptData,\n      outcome: $json.query.decision === 'approve' ? 'proceed' : 'rejected'\n    }\n  }];\n}\n\nconst MAX_ATTEMPTS = 5;\nif (attemptData.attempt >= MAX_ATTEMPTS) {\n  return [{ json: { ...attemptData, outcome: 'proceed', auto_approved: true } }];\n}\nreturn [{ json: { ...attemptData, attempt: attemptData.attempt + 1, outcome: 'retry' } }];"
+        "jsCode": "// $json here is either the Telegram webhook resume payload (button click) or,\n// if Wait's time limit fired first, a passthrough of whatever fed the Wait node --\n// so attempt/keyword data always comes from the named Keyword Approval Attempt node.\nconst attemptData = $('Keyword Approval Attempt').first().json;\nconst hasDecision = $json.query && typeof $json.query.decision !== 'undefined';\n\nif (hasDecision) {\n  return [{\n    json: {\n      ...attemptData,\n      outcome: $json.query.decision === 'approve' ? 'proceed' : 'rejected'\n    }\n  }];\n}\n\nconst MAX_ATTEMPTS = 5;\nif (attemptData.attempt >= MAX_ATTEMPTS) {\n  return [{ json: { ...attemptData, outcome: 'proceed', auto_approved: true } }];\n}\nreturn [{ json: { ...attemptData, attempt: attemptData.attempt + 1, outcome: 'retry' } }];"
       },
       "id": "8d1e724e-9349-421c-9803-84d8b09a7b10",
       "name": "Evaluate Keyword Approval",
@@ -266,7 +266,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const decision = $('Parse Approval Comment').item.json.decision;\nconst comment = $('Parse Approval Comment').item.json.comment;\nconst rows = $input.all().map(i => i.json);\nconst pending = rows.filter(r => r.pending_review_resume_url).sort((a, b) => b.id - a.id)[0];\nif (!pending) {\n  return []; // nothing currently waiting on a news-review approval -- ignore this reply\n}\nreturn [{ json: { decision, comment, resume_url: pending.pending_review_resume_url, id: pending.id } }];"
+        "jsCode": "const decision = $('Parse Approval Comment').first().json.decision;\nconst comment = $('Parse Approval Comment').first().json.comment;\nconst rows = $input.all().map(i => i.json);\nconst pending = rows.filter(r => r.pending_review_resume_url).sort((a, b) => b.id - a.id)[0];\nif (!pending) {\n  return []; // nothing currently waiting on a news-review approval -- ignore this reply\n}\nreturn [{ json: { decision, comment, resume_url: pending.pending_review_resume_url, id: pending.id } }];"
       },
       "id": "aa32bf28-348d-4ef7-a1e1-7cd803ac7e16",
       "name": "Find Pending Resume URL",
@@ -294,7 +294,7 @@
         "tableId": "trending_keywords",
         "filters": {
           "conditions": [
-            { "keyName": "id", "condition": "eq", "keyValue": "={{ $('Find Pending Resume URL').item.json.id }}" }
+            { "keyName": "id", "condition": "eq", "keyValue": "={{ $('Find Pending Resume URL').first().json.id }}" }
           ]
         },
         "fieldsUi": {
@@ -316,7 +316,7 @@
     {
       "parameters": {
         "chatId": "624361524",
-        "text": "={{ $('Find Pending Resume URL').item.json.decision === 'approve' ? '✅ 코멘트 반영해서 초안 작성을 진행할게요.' : '❌ 거절 처리했습니다.' }}{{ $('Find Pending Resume URL').item.json.comment ? '\\n\\n남기신 코멘트: ' + $('Find Pending Resume URL').item.json.comment : '' }}",
+        "text": "={{ $('Find Pending Resume URL').first().json.decision === 'approve' ? '✅ 코멘트 반영해서 초안 작성을 진행할게요.' : '❌ 거절 처리했습니다.' }}{{ $('Find Pending Resume URL').first().json.comment ? '\\n\\n남기신 코멘트: ' + $('Find Pending Resume URL').first().json.comment : '' }}",
         "additionalFields": { "parse_mode": "Markdown" }
       },
       "id": "f87182ad-1c73-4c5c-91ac-5b1ff39c0974",
@@ -331,7 +331,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Single convergence point for Flow A (approved trend, arrives after a Wait node -- so $json/$input\n// at this point would just be the Telegram resume payload, NOT the keyword data) and Flow B (manual\n// /post, arrives directly with no Wait in between). Reference the real source explicitly by name.\nlet source;\ntry {\n  source = $('Pick Next Keyword').item.json;\n} catch (e) {\n  source = $('Insert Manual Keyword').item.json;\n}\nreturn [{\n  json: {\n    id: source.id,\n    keyword: source.keyword,\n    trend_link: source.trend_link || null\n  }\n}];"
+        "jsCode": "// Single convergence point for Flow A (approved trend, arrives after a Wait node -- so $json/$input\n// at this point would just be the Telegram resume payload, NOT the keyword data) and Flow B (manual\n// /post, arrives directly with no Wait in between). Reference the real source explicitly by name.\nlet source;\ntry {\n  source = $('Pick Next Keyword').first().json;\n} catch (e) {\n  source = $('Insert Manual Keyword').first().json;\n}\nreturn [{\n  json: {\n    id: source.id,\n    keyword: source.keyword,\n    trend_link: source.trend_link || null\n  }\n}];"
       },
       "id": "ed44a2f0-4e00-4ca1-ab97-ee52dc179363",
       "name": "Keyword Context",
@@ -360,7 +360,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const RECENCY_HOURS = 48;\nconst keywordCtx = $('Keyword Context').item.json;\nconst response = $input.first().json;\nconst articles = response.items || [];\nconst cutoff = Date.now() - RECENCY_HOURS * 3600 * 1000;\n\nconst recent = articles\n  .filter(a => {\n    const t = new Date(a.pubDate).getTime();\n    return !isNaN(t) && t >= cutoff;\n  })\n  .map(a => ({\n    keyword_id: keywordCtx.id,\n    title: (a.title || '').replace(/<[^>]+>/g, ''),\n    url: a.originallink || a.link,\n    source: 'naver_news',\n    published_at: a.pubDate\n  }));\n\n// Always return exactly ONE item (even when recent.length === 0) -- n8n skips\n// downstream nodes entirely when an item count hits zero, which used to silently\n// kill the 'no recent news' Telegram notification. IF News Found now reads\n// count/articles directly off this single item instead of depending on\n// Insert News/Aggregate News having actually run.\nreturn [{ json: { keyword_id: keywordCtx.id, count: recent.length, articles: recent } }];"
+        "jsCode": "const RECENCY_HOURS = 48;\nconst keywordCtx = $('Keyword Context').first().json;\nconst response = $input.first().json;\nconst articles = response.items || [];\nconst cutoff = Date.now() - RECENCY_HOURS * 3600 * 1000;\n\nconst recent = articles\n  .filter(a => {\n    const t = new Date(a.pubDate).getTime();\n    return !isNaN(t) && t >= cutoff;\n  })\n  .map(a => ({\n    keyword_id: keywordCtx.id,\n    title: (a.title || '').replace(/<[^>]+>/g, ''),\n    url: a.originallink || a.link,\n    source: 'naver_news',\n    published_at: a.pubDate\n  }));\n\n// Always return exactly ONE item (even when recent.length === 0) -- n8n skips\n// downstream nodes entirely when an item count hits zero, which used to silently\n// kill the 'no recent news' Telegram notification. IF News Found now reads\n// count/articles directly off this single item instead of depending on\n// Insert News/Aggregate News having actually run.\nreturn [{ json: { keyword_id: keywordCtx.id, count: recent.length, articles: recent } }];"
       },
       "id": "45afd14c-08bd-424c-bf23-20d170050eb3",
       "name": "Parse & Split Articles",
@@ -431,7 +431,7 @@
     {
       "parameters": {
         "chatId": "624361524",
-        "text": "=키워드 *{{ $('Keyword Context').item.json.keyword }}* 에 대해 최근 48시간 내 뉴스가 없어 이번 회차는 건너뜁니다.",
+        "text": "=키워드 *{{ $('Keyword Context').first().json.keyword }}* 에 대해 최근 48시간 내 뉴스가 없어 이번 회차는 건너뜁니다.",
         "additionalFields": { "parse_mode": "Markdown" }
       },
       "id": "4bc1843d-0b35-44d1-a9ec-e99fec8e37cb",
@@ -446,7 +446,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const keywordCtx = $('Keyword Context').item.json;\nconst agg = $input.first().json;\nconst titles = agg.title || [];\nconst urls = agg.url || [];\nconst newsLines = titles.map((t, i) => `${i + 1}. ${t}\\n   ${urls[i] || ''}`).join('\\n') || '(관련 뉴스 없음)';\n\nreturn [{\n  json: {\n    id: keywordCtx.id,\n    keyword: keywordCtx.keyword,\n    trend_link: keywordCtx.trend_link,\n    news_list: newsLines\n  }\n}];"
+        "jsCode": "const keywordCtx = $('Keyword Context').first().json;\nconst agg = $input.first().json;\nconst titles = agg.title || [];\nconst urls = agg.url || [];\nconst newsLines = titles.map((t, i) => `${i + 1}. ${t}\\n   ${urls[i] || ''}`).join('\\n') || '(관련 뉴스 없음)';\n\nreturn [{\n  json: {\n    id: keywordCtx.id,\n    keyword: keywordCtx.keyword,\n    trend_link: keywordCtx.trend_link,\n    news_list: newsLines\n  }\n}];"
       },
       "id": "7850587e-a307-45a7-b69b-cc20eb9f20d2",
       "name": "Build News Summary",
@@ -500,7 +500,7 @@
         "tableId": "trending_keywords",
         "filters": {
           "conditions": [
-            { "keyName": "id", "condition": "eq", "keyValue": "={{ $('News Review Attempt').item.json.id }}" }
+            { "keyName": "id", "condition": "eq", "keyValue": "={{ $('News Review Attempt').first().json.id }}" }
           ]
         },
         "fieldsUi": {
@@ -524,7 +524,7 @@
       "parameters": {
         "resume": "webhook",
         "limitWaitTime": true,
-        "resumeAmount": "={{ $('News Review Attempt').item.json.attempt === 1 ? 3 : 5 }}",
+        "resumeAmount": "={{ $('News Review Attempt').first().json.attempt === 1 ? 3 : 5 }}",
         "resumeUnit": "minutes",
         "options": {}
       },
@@ -538,7 +538,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const attemptData = $('News Review Attempt').item.json;\nconst hasDecision = $json.query && typeof $json.query.decision !== 'undefined';\n\nif (hasDecision) {\n  return [{\n    json: {\n      ...attemptData,\n      outcome: $json.query.decision === 'approve' ? 'proceed' : 'rejected',\n      comment: $json.query.comment || null\n    }\n  }];\n}\n\nconst MAX_ATTEMPTS = 5;\nif (attemptData.attempt >= MAX_ATTEMPTS) {\n  return [{ json: { ...attemptData, outcome: 'proceed', auto_approved: true, comment: null } }];\n}\nreturn [{ json: { ...attemptData, attempt: attemptData.attempt + 1, outcome: 'retry' } }];"
+        "jsCode": "const attemptData = $('News Review Attempt').first().json;\nconst hasDecision = $json.query && typeof $json.query.decision !== 'undefined';\n\nif (hasDecision) {\n  return [{\n    json: {\n      ...attemptData,\n      outcome: $json.query.decision === 'approve' ? 'proceed' : 'rejected',\n      comment: $json.query.comment || null\n    }\n  }];\n}\n\nconst MAX_ATTEMPTS = 5;\nif (attemptData.attempt >= MAX_ATTEMPTS) {\n  return [{ json: { ...attemptData, outcome: 'proceed', auto_approved: true, comment: null } }];\n}\nreturn [{ json: { ...attemptData, attempt: attemptData.attempt + 1, outcome: 'retry' } }];"
       },
       "id": "bff18a39-912e-4fd8-b5a6-95c3c843ea1f",
       "name": "Evaluate News Review",
@@ -584,7 +584,7 @@
     {
       "parameters": {
         "chatId": "624361524",
-        "text": "=키워드 *{{ $('Keyword Context').item.json.keyword }}* 초안 작성이 취소되었습니다.",
+        "text": "=키워드 *{{ $('Keyword Context').first().json.keyword }}* 초안 작성이 취소되었습니다.",
         "additionalFields": { "parse_mode": "Markdown" }
       },
       "id": "842d734a-440c-4716-bf73-71ef4c6be869",
@@ -612,7 +612,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ model: \"claude-sonnet-5\", max_tokens: 4096, tools: [{ name: \"blog_draft\", description: \"워드프레스에 바로 등록 가능한 블로그 초안 생성\", input_schema: { type: \"object\", properties: { title: { type: \"string\" }, body_html: { type: \"string\" }, excerpt: { type: \"string\" }, tags: { type: \"array\", items: { type: \"string\" } }, category: { type: \"string\", enum: [\"정치\", \"경제\", \"사회\", \"생활/문화\", \"IT/과학\", \"연예\", \"스포츠\", \"국제\", \"기타\"] }, meta_description: { type: \"string\" } }, required: [\"title\", \"body_html\", \"excerpt\", \"tags\", \"category\", \"meta_description\"] } }], tool_choice: { type: \"tool\", name: \"blog_draft\" }, messages: [{ role: \"user\", content: (() => { const base = `지금 화제인 키워드: ${$('Build News Summary').item.json.keyword}\\n\\n관련 뉴스:\\n${$('Build News Summary').item.json.news_list}\\n\\nGoogle Trends 원본 링크: ${$('Build News Summary').item.json.trend_link}\\n\\n위 내용을 참고해서 이 키워드를 자연스럽게 다루는 한국어 블로그 글을 작성해줘.\\n\\n작성 지침:\\n- 도입부는 '~가 화제인 이유는', '~에 대해 알아보겠습니다' 같은 상투적이고 AI스러운 문장으로 시작하지 마. 매번 다른 각도로 -- 최근 반응, 지금 분위기, 사람들이 주목하는 포인트 등 -- 자연스럽게 짚으면서 이 키워드로 시작해줘. 매 포스팅마다 도입부 스타일을 다르게 해줘.\\n- body_html 끝부분은 부가 설명이 아니라 글의 흐름을 자연스럽게 마무리하는 문단으로 끝내고, 참고한 뉴스 출처 링크를 그 안에 자연스럽게 언급해줘.\\n- excerpt는 워드프레스 발췌문(글 목록/공유 시 노출)으로 쓸 1~2문장짜리 짧고 흥미로운 요약을 작성해줘.\\n- meta_description은 본문에는 노출되지 않는 검색엔진용 요약(150자 내외)으로 따로 작성해줘. excerpt와는 톤이 달라도 돼.\\n- category는 정치/경제/사회/생활문화/IT과학/연예/스포츠/국제/기타 중 이 포스팅에 가장 맞는 하나로 골라줘.\\n- 절대 뉴스 기사를 단순히 요약만 하지 마. 이 사안이 왜 지금 화제인지에 대한 배경, 앞으로 어떻게 흘러갈지에 대한 전망, 비슷한 과거 사례와의 비교, 이게 독자에게 왜 중요한지 같은 너만의 관점과 분석을 최소 한두 문단 이상 담아줘. 기사 내용을 재배열한 것처럼 읽히면 안 되고, 읽고 나서 뭔가 새로운 통찰을 얻었다는 느낌이 들어야 해.`; const comment = $('Evaluate News Review').item.json.comment; return comment ? base + `\\n\\n[검토자 코멘트]\\n${comment}\\n위 코멘트 내용을 최대한 반영해서 작성해줘.` : base; })() }] }) }}",
+        "jsonBody": "={{ JSON.stringify({ model: \"claude-sonnet-5\", max_tokens: 4096, tools: [{ name: \"blog_draft\", description: \"워드프레스에 바로 등록 가능한 블로그 초안 생성\", input_schema: { type: \"object\", properties: { title: { type: \"string\" }, body_html: { type: \"string\" }, excerpt: { type: \"string\" }, tags: { type: \"array\", items: { type: \"string\" } }, category: { type: \"string\", enum: [\"정치\", \"경제\", \"사회\", \"생활/문화\", \"IT/과학\", \"연예\", \"스포츠\", \"국제\", \"기타\"] }, meta_description: { type: \"string\" } }, required: [\"title\", \"body_html\", \"excerpt\", \"tags\", \"category\", \"meta_description\"] } }], tool_choice: { type: \"tool\", name: \"blog_draft\" }, messages: [{ role: \"user\", content: (() => { const base = `지금 화제인 키워드: ${$('Build News Summary').first().json.keyword}\\n\\n관련 뉴스:\\n${$('Build News Summary').first().json.news_list}\\n\\nGoogle Trends 원본 링크: ${$('Build News Summary').first().json.trend_link}\\n\\n위 내용을 참고해서 이 키워드를 자연스럽게 다루는 한국어 블로그 글을 작성해줘.\\n\\n작성 지침:\\n- 도입부는 '~가 화제인 이유는', '~에 대해 알아보겠습니다' 같은 상투적이고 AI스러운 문장으로 시작하지 마. 매번 다른 각도로 -- 최근 반응, 지금 분위기, 사람들이 주목하는 포인트 등 -- 자연스럽게 짚으면서 이 키워드로 시작해줘. 매 포스팅마다 도입부 스타일을 다르게 해줘.\\n- body_html 끝부분은 부가 설명이 아니라 글의 흐름을 자연스럽게 마무리하는 문단으로 끝내고, 참고한 뉴스 출처 링크를 그 안에 자연스럽게 언급해줘.\\n- excerpt는 워드프레스 발췌문(글 목록/공유 시 노출)으로 쓸 1~2문장짜리 짧고 흥미로운 요약을 작성해줘.\\n- meta_description은 본문에는 노출되지 않는 검색엔진용 요약(150자 내외)으로 따로 작성해줘. excerpt와는 톤이 달라도 돼.\\n- category는 정치/경제/사회/생활문화/IT과학/연예/스포츠/국제/기타 중 이 포스팅에 가장 맞는 하나로 골라줘.\\n- 절대 뉴스 기사를 단순히 요약만 하지 마. 이 사안이 왜 지금 화제인지에 대한 배경, 앞으로 어떻게 흘러갈지에 대한 전망, 비슷한 과거 사례와의 비교, 이게 독자에게 왜 중요한지 같은 너만의 관점과 분석을 최소 한두 문단 이상 담아줘. 기사 내용을 재배열한 것처럼 읽히면 안 되고, 읽고 나서 뭔가 새로운 통찰을 얻었다는 느낌이 들어야 해.`; const comment = $('Evaluate News Review').first().json.comment; return comment ? base + `\\n\\n[검토자 코멘트]\\n${comment}\\n위 코멘트 내용을 최대한 반영해서 작성해줘.` : base; })() }] }) }}",
         "options": {}
       },
       "id": "bbbb4520-e603-42dc-8d86-e1add9012ea9",
@@ -661,7 +661,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const response = $input.all().map(i => i.json);\nconst targetName = $('Parse Claude Response').item.json.category;\nconst match = response.find(c => c.name === targetName);\nreturn [{ json: { found: !!match, id: match ? match.id : null, name: targetName } }];"
+        "jsCode": "const response = $input.all().map(i => i.json);\nconst targetName = $('Parse Claude Response').first().json.category;\nconst match = response.find(c => c.name === targetName);\nreturn [{ json: { found: !!match, id: match ? match.id : null, name: targetName } }];"
       },
       "id": "a2000001-0002-4a11-9001-000000000002",
       "name": "Normalize Category Search",
@@ -700,7 +700,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ name: $('Normalize Category Search').item.json.name }) }}",
+        "jsonBody": "={{ JSON.stringify({ name: $('Normalize Category Search').first().json.name }) }}",
         "options": {}
       },
       "id": "a2000001-0004-4a11-9001-000000000004",
@@ -739,7 +739,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const claudeTags = $('Parse Claude Response').item.json.tags || [];\nconst existingTags = $input.all().map(i => i.json);\nconst existingByName = new Map(existingTags.map(t => [String(t.name).toLowerCase(), t.id]));\nconst resolvedIds = [];\nconst missingNames = [];\nfor (const name of claudeTags) {\n  const id = existingByName.get(String(name).toLowerCase());\n  if (id) resolvedIds.push(id);\n  else missingNames.push(name);\n}\nif (missingNames.length === 0) {\n  return [{ json: { needsCreate: false, resolvedIds } }];\n}\nreturn missingNames.map(name => ({ json: { needsCreate: true, name, resolvedIds } }));"
+        "jsCode": "const claudeTags = $('Parse Claude Response').first().json.tags || [];\nconst existingTags = $input.all().map(i => i.json);\nconst existingByName = new Map(existingTags.map(t => [String(t.name).toLowerCase(), t.id]));\nconst resolvedIds = [];\nconst missingNames = [];\nfor (const name of claudeTags) {\n  const id = existingByName.get(String(name).toLowerCase());\n  if (id) resolvedIds.push(id);\n  else missingNames.push(name);\n}\nif (missingNames.length === 0) {\n  return [{ json: { needsCreate: false, resolvedIds } }];\n}\nreturn missingNames.map(name => ({ json: { needsCreate: true, name, resolvedIds } }));"
       },
       "id": "a2000001-0006-4a11-9001-000000000006",
       "name": "Resolve Tag IDs",
@@ -832,7 +832,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ title: $('Parse Claude Response').item.json.title, content: $('Parse Claude Response').item.json.body_html, excerpt: $('Parse Claude Response').item.json.excerpt, status: \"draft\", categories: [(() => { const norm = $('Normalize Category Search').item.json; if (norm.found) return norm.id; try { return $('Create WP Category').item.json.id; } catch (e) { return null; } })()], tags: $('Finalize Tag IDs').item.json.tag_ids }) }}",
+        "jsonBody": "={{ JSON.stringify({ title: $('Parse Claude Response').first().json.title, content: $('Parse Claude Response').first().json.body_html, excerpt: $('Parse Claude Response').first().json.excerpt, status: \"draft\", categories: [(() => { const norm = $('Normalize Category Search').first().json; if (norm.found) return norm.id; try { return $('Create WP Category').first().json.id; } catch (e) { return null; } })()], tags: $('Finalize Tag IDs').first().json.tag_ids }) }}",
         "options": {}
       },
       "id": "a2000001-0011-4a11-9001-000000000011",
@@ -851,13 +851,13 @@
         "tableId": "trending_keywords",
         "filters": {
           "conditions": [
-            { "keyName": "id", "condition": "eq", "keyValue": "={{ $('Keyword Context').item.json.id }}" }
+            { "keyName": "id", "condition": "eq", "keyValue": "={{ $('Keyword Context').first().json.id }}" }
           ]
         },
         "fieldsUi": {
           "fieldValues": [
             { "fieldId": "posted_at", "fieldValue": "={{ $now.toISO() }}" },
-            { "fieldId": "wp_post_id", "fieldValue": "={{ $('Publish WordPress').item.json.id }}" }
+            { "fieldId": "wp_post_id", "fieldValue": "={{ $('Publish WordPress').first().json.id }}" }
           ]
         }
       },
@@ -875,7 +875,7 @@
     {
       "parameters": {
         "chatId": "624361524",
-        "text": "=✅ {{ $('Keyword Context').item.json.keyword }} 워드프레스 초안 등록 완료 (Draft).\n\n편집: https://deohaam.com/wp-admin/post.php?post={{ $('Publish WordPress').item.json.id }}&action=edit\n미리보기: https://deohaam.com/?p={{ $('Publish WordPress').item.json.id }}&preview=true",
+        "text": "=✅ {{ $('Keyword Context').first().json.keyword }} 워드프레스 초안 등록 완료 (Draft).\n\n편집: https://deohaam.com/wp-admin/post.php?post={{ $('Publish WordPress').first().json.id }}&action=edit\n미리보기: https://deohaam.com/?p={{ $('Publish WordPress').first().json.id }}&preview=true",
         "additionalFields": {}
       },
       "type": "n8n-nodes-base.telegram",
@@ -891,7 +891,7 @@
     {
       "parameters": {
         "chatId": "624361524",
-        "text": "=⚠️ {{ $('Keyword Context').item.json.keyword }} 처리 중 오류 발생: {{ $json.error?.message || $json.error || JSON.stringify($json) }}  (워드프레스 초안은 이미 등록됐을 수 있습니다 -- DB 기록만 실패한 상태입니다.)",
+        "text": "=⚠️ {{ $('Keyword Context').first().json.keyword }} 처리 중 오류 발생: {{ $json.error?.message || $json.error || JSON.stringify($json) }}  (워드프레스 초안은 이미 등록됐을 수 있습니다 -- DB 기록만 실패한 상태입니다.)",
         "additionalFields": {}
       },
       "type": "n8n-nodes-base.telegram",
