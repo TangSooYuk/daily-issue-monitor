@@ -67,7 +67,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const COOLDOWN_DAYS = 14;\nconst cooldownMs = COOLDOWN_DAYS * 24 * 60 * 60 * 1000;\nconst now = Date.now();\nconst today = new Date(now + 9 * 60 * 60 * 1000).toISOString().slice(0, 10); // KST date, not UTC\n\nconst topKeywords = $('Extract Top 20').all().map(i => i.json); // ranked, index 0 = highest volume\nconst allRows = $input.all().map(i => i.json); // Get Recently Posted output (includes rows Insert Keywords History just wrote)\n\nconst recentlyPosted = new Set(\n  allRows\n    .filter(r => r.posted_at && (now - new Date(r.posted_at).getTime()) < cooldownMs)\n    .map(r => r.keyword)\n);\n\nconst candidate = topKeywords.find(k => !recentlyPosted.has(k.keyword));\nif (!candidate) {\n  // Always return exactly ONE item (found:false) instead of [] -- otherwise n8n skips\n  // every downstream node and the schedule run ends with zero visible trace.\n  return [{ json: { found: false } }];\n}\n\nconst dbRow = allRows.find(r => r.keyword === candidate.keyword && r.trend_date === today && r.region === 'KR');\nif (!dbRow) {\n  // Should not happen since Insert Keywords History ran first, but bail safely if it does.\n  return [{ json: { found: false } }];\n}\n\nreturn [{\n  json: {\n    found: true,\n    id: dbRow.id,\n    keyword: dbRow.keyword,\n    approx_traffic: dbRow.approx_traffic,\n    trend_link: dbRow.trend_link\n  }\n}];"
+        "jsCode": "const COOLDOWN_DAYS = 14;\nconst MIN_VOLUME = 1000;\nconst cooldownMs = COOLDOWN_DAYS * 24 * 60 * 60 * 1000;\nconst now = Date.now();\nconst today = new Date(now + 9 * 60 * 60 * 1000).toISOString().slice(0, 10); // KST date, not UTC\n\nconst topKeywords = $('Extract Top 20').all().map(i => i.json); // ranked, index 0 = highest volume\nconst allRows = $input.all().map(i => i.json); // Get Recently Posted output (includes rows Insert Keywords History just wrote)\n\nconst recentlyPosted = new Set(\n  allRows\n    .filter(r => r.posted_at && (now - new Date(r.posted_at).getTime()) < cooldownMs)\n    .map(r => r.keyword)\n);\n\n// approx_traffic looks like '1000+', '5000+', etc. -- pull the digits out to compare.\nconst parseVolume = (s) => {\n  if (!s) return 0;\n  const digits = String(s).replace(/[^0-9]/g, '');\n  return digits ? parseInt(digits, 10) : 0;\n};\n\nconst eligible = topKeywords.filter(k => !recentlyPosted.has(k.keyword));\nif (eligible.length === 0) {\n  // Always return exactly ONE item (found:false) instead of [] -- otherwise n8n skips\n  // every downstream node and the schedule run ends with zero visible trace.\n  return [{ json: { found: false, reason: 'cooldown' } }];\n}\n\n// Walk down the ranked, cooldown-eligible list for the first one that also clears\n// the volume bar -- rather than only checking the #1 spot and giving up immediately.\nconst candidate = eligible.find(k => parseVolume(k.approx_traffic) >= MIN_VOLUME);\nif (!candidate) {\n  return [{ json: { found: false, reason: 'low_volume' } }];\n}\n\nconst dbRow = allRows.find(r => r.keyword === candidate.keyword && r.trend_date === today && r.region === 'KR');\nif (!dbRow) {\n  // Should not happen since Insert Keywords History ran first, but bail safely if it does.\n  return [{ json: { found: false, reason: 'cooldown' } }];\n}\n\nreturn [{\n  json: {\n    found: true,\n    id: dbRow.id,\n    keyword: dbRow.keyword,\n    approx_traffic: dbRow.approx_traffic,\n    trend_link: dbRow.trend_link\n  }\n}];"
       },
       "id": "75bd4df8-d6d2-4c76-baa2-8202a37b518e",
       "name": "Pick Next Keyword",
@@ -96,7 +96,7 @@
     {
       "parameters": {
         "chatId": "624361524",
-        "text": "=이번 회차(3시간 주기)에는 새로 포스팅할 트렌드 키워드가 없어 건너뜁니다.\n(상위 20개 키워드가 모두 최근 14일 내 처리된 상태이거나, 키워드 저장 과정에 문제가 있을 수 있습니다.)",
+        "text": "={{ $json.reason === 'low_volume' ? '이번 회차(3시간 주기)에는 검색 볼륨(1000+) 조건을 만족하는 키워드가 없어 건너뜁니다.' : '이번 회차(3시간 주기)에는 새로 포스팅할 트렌드 키워드가 없어 건너뜁니다.\\n(상위 20개 키워드가 모두 최근 14일 내 처리된 상태이거나, 키워드 저장 과정에 문제가 있을 수 있습니다.)' }}",
         "additionalFields": { "parse_mode": "Markdown" }
       },
       "id": "b0000001-0002-4a11-9101-000000000002",
@@ -330,7 +330,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Single convergence point for Flow A (approved trend, arrives after a Wait node -- so $json/$input\n// at this point would just be the Telegram resume payload, NOT the keyword data) and Flow B (manual\n// /post, arrives directly with no Wait in between). Reference the real source explicitly by name.\nlet source;\ntry {\n  source = $('Pick Next Keyword').first().json;\n} catch (e) {\n  source = $('Insert Manual Keyword').first().json;\n}\nreturn [{\n  json: {\n    id: source.id,\n    keyword: source.keyword,\n    trend_link: source.trend_link || null\n  }\n}];"
+        "jsCode": "// Single convergence point for Flow A (approved trend, arrives after a Wait node -- so $json/$input\n// at this point would just be the Telegram resume payload, NOT the keyword data) and Flow B (manual\n// /post, arrives directly with no Wait in between). Reference the real source explicitly by name.\nlet source;\nlet flowSource;\ntry {\n  source = $('Pick Next Keyword').first().json;\n  flowSource = 'trend';\n} catch (e) {\n  source = $('Insert Manual Keyword').first().json;\n  flowSource = 'manual';\n}\nreturn [{\n  json: {\n    id: source.id,\n    keyword: source.keyword,\n    trend_link: source.trend_link || null,\n    source: flowSource\n  }\n}];"
       },
       "id": "ce1280a8-38b1-470b-a91f-c7083f8b2e7a",
       "name": "Keyword Context",
@@ -340,7 +340,7 @@
     },
     {
       "parameters": {
-        "url": "=https://naverapihub.apigw.ntruss.com/search/v1/news?query={{ encodeURIComponent($json.keyword) }}&display=10&sort=date",
+        "url": "=https://naverapihub.apigw.ntruss.com/search/v1/news?query={{ encodeURIComponent($json.keyword) }}&display={{ $json.source === 'manual' ? 30 : 10 }}&sort=date",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -359,7 +359,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const RECENCY_HOURS = 48;\nconst keywordCtx = $('Keyword Context').first().json;\nconst response = $input.first().json;\nconst articles = response.items || [];\nconst cutoff = Date.now() - RECENCY_HOURS * 3600 * 1000;\n\nconst recent = articles\n  .filter(a => {\n    const t = new Date(a.pubDate).getTime();\n    return !isNaN(t) && t >= cutoff;\n  })\n  .map(a => ({\n    keyword_id: keywordCtx.id,\n    title: (a.title || '').replace(/<[^>]+>/g, ''),\n    url: a.originallink || a.link,\n    source: 'naver_news',\n    published_at: a.pubDate\n  }));\n\n// Always return exactly ONE item (even when recent.length === 0) -- n8n skips\n// downstream nodes entirely when an item count hits zero, which used to silently\n// kill the 'no recent news' Telegram notification. IF News Found now reads\n// count/articles directly off this single item instead of depending on\n// Insert News/Aggregate News having actually run.\nreturn [{ json: { keyword_id: keywordCtx.id, count: recent.length, articles: recent } }];"
+        "jsCode": "const keywordCtx = $('Keyword Context').first().json;\n// Manual /post posts can reach back 6 months (roughly 182 days) since they're about\n// a topic the user is personally interested in, not necessarily breaking news;\n// automatic trend posts stay tight at 48h since the whole point there is freshness.\nconst RECENCY_DAYS = keywordCtx.source === 'manual' ? 182 : 2;\nconst response = $input.first().json;\nconst articles = response.items || [];\nconst cutoff = Date.now() - RECENCY_DAYS * 24 * 3600 * 1000;\n\nconst recent = articles\n  .filter(a => {\n    const t = new Date(a.pubDate).getTime();\n    return !isNaN(t) && t >= cutoff;\n  })\n  .map(a => ({\n    keyword_id: keywordCtx.id,\n    title: (a.title || '').replace(/<[^>]+>/g, ''),\n    url: a.originallink || a.link,\n    source: 'naver_news',\n    published_at: a.pubDate\n  }));\n\n// Always return exactly ONE item (even when recent.length === 0) -- n8n skips\n// downstream nodes entirely when an item count hits zero, which used to silently\n// kill the 'no recent news' Telegram notification. IF News Found now reads\n// count/articles directly off this single item instead of depending on\n// Insert News/Aggregate News having actually run.\nreturn [{ json: { keyword_id: keywordCtx.id, count: recent.length, articles: recent } }];"
       },
       "id": "0196c1c7-b3fc-408e-9098-10377c641fce",
       "name": "Parse & Split Articles",
@@ -419,7 +419,7 @@
     {
       "parameters": {
         "chatId": "624361524",
-        "text": "=키워드 *{{ $('Keyword Context').first().json.keyword }}* 에 대해 최근 48시간 내 뉴스가 없어 이번 회차는 건너뜁니다.",
+        "text": "=키워드 *{{ $('Keyword Context').first().json.keyword }}* 에 대해 최근 {{ $('Keyword Context').first().json.source === 'manual' ? '6개월' : '48시간' }} 내 뉴스가 없어 이번 회차는 건너뜁니다.",
         "additionalFields": { "parse_mode": "Markdown" }
       },
       "id": "10d1cf45-e2c3-44b7-92c2-5b24da9be78b",
