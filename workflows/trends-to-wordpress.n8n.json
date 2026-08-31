@@ -611,7 +611,113 @@
     },
     {
       "parameters": {
-        "url": "=https://deohaam.com/wp-json/wp/v2/categories?search={{ encodeURIComponent($json.category) }}",
+        "jsCode": "const category = $input.first().json.category;\nconst map = {\n  '정치': 'politics government',\n  '경제': 'finance business economy',\n  '사회': 'society community',\n  '생활/문화': 'lifestyle culture',\n  'IT/과학': 'technology science',\n  '연예': 'entertainment stage lights',\n  '스포츠': 'sports stadium',\n  '국제': 'world global international',\n  '기타': 'news background'\n};\nreturn [{ json: { query: map[category] || 'news background' } }];"
+      },
+      "id": "b0000002-0001-4a11-9201-000000000001",
+      "name": "Map Category to Image Query",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-5376, 1500],
+      "notes": "Pexels has almost no coverage for Korean proper-noun keywords (politician names, drama titles, etc.), so the actual trend keyword is never searched directly -- only a generic English query derived from Claude's category, giving a decorative but reliably non-empty result."
+    },
+    {
+      "parameters": {
+        "url": "=https://api.pexels.com/v1/search?query={{ encodeURIComponent($json.query) }}&per_page=1&orientation=landscape",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "REPLACE_WITH_YOUR_PEXELS_API_KEY" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b0000002-0002-4a11-9201-000000000002",
+      "name": "Search Pexels Image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-5152, 1500],
+      "alwaysOutputData": true,
+      "notes": "VERIFY IN UI: get a free API key at https://www.pexels.com/api/ and paste it into the Authorization header (raw key, no 'Bearer' prefix). alwaysOutputData=true so a zero-result search doesn't skip the rest of the publish chain."
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nconst photo = (response.photos || [])[0];\nif (!photo) {\n  return [{ json: { found: false } }];\n}\nreturn [{\n  json: {\n    found: true,\n    imageUrl: photo.src.large2x || photo.src.original,\n    photographer: photo.photographer,\n    photographerUrl: photo.photographer_url\n  }\n}];"
+      },
+      "id": "b0000002-0003-4a11-9201-000000000003",
+      "name": "Select Pexels Photo",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-4928, 1500]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 1 },
+          "conditions": [
+            { "leftValue": "={{ $json.found ? 'true' : 'false' }}", "rightValue": "true", "operator": { "type": "string", "operation": "equals" } }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b0000002-0004-4a11-9201-000000000004",
+      "name": "IF Image Found",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [-4704, 1500],
+      "notes": "false branch (no Pexels result) skips straight to Finalize Featured Media with featured_media left at 0 -- a missing image must never block publishing the post itself."
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.imageUrl }}",
+        "options": { "response": { "response": { "responseFormat": "file" } } }
+      },
+      "id": "b0000002-0005-4a11-9201-000000000005",
+      "name": "Download Pexels Image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-4480, 1420]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://deohaam.com/wp-json/wp/v2/media",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "User-Agent", "value": "curl/8.21.0" },
+            { "name": "Content-Disposition", "value": "attachment; filename=\"featured-image.jpg\"" },
+            { "name": "Content-Type", "value": "image/jpeg" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "data",
+        "options": {}
+      },
+      "id": "b0000002-0006-4a11-9201-000000000006",
+      "name": "Upload Image to WordPress",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-4256, 1420],
+      "credentials": { "httpBasicAuth": { "id": "1ZP4HbtbBkA6d5Z4", "name": "Gabia" } },
+      "notes": "VERIFY IN UI: reconnect the 'Gabia' Basic Auth credential like the other WordPress nodes. Uploads the downloaded binary directly to the media library; response's 'id' becomes the post's featured_media."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Reached from either IF Image Found's true branch (Upload Image to WordPress's\n// response, which has an 'id') or its false branch (the {found:false} passthrough,\n// which has no 'id') -- either way, exactly one item arrives here.\nconst item = $input.first().json;\nreturn [{ json: { featured_media: item.id || 0 } }];"
+      },
+      "id": "b0000002-0007-4a11-9201-000000000007",
+      "name": "Finalize Featured Media",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-4032, 1500]
+    },
+    {
+      "parameters": {
+        "url": "=https://deohaam.com/wp-json/wp/v2/categories?search={{ encodeURIComponent($('Parse Claude Response').first().json.category) }}",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpBasicAuth",
         "sendHeaders": true,
@@ -773,7 +879,7 @@
         "headerParameters": { "parameters": [ { "name": "User-Agent", "value": "curl/8.21.0" } ] },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ title: $('Parse Claude Response').first().json.title, content: $('Parse Claude Response').first().json.body_html, excerpt: $('Parse Claude Response').first().json.excerpt, status: \"draft\", categories: [(() => { const norm = $('Normalize Category Search').first().json; if (norm.found) return norm.id; try { return $('Create WP Category').first().json.id; } catch (e) { return null; } })()], tags: $('Finalize Tag IDs').first().json.tag_ids }) }}",
+        "jsonBody": "={{ JSON.stringify({ title: $('Parse Claude Response').first().json.title, content: $('Parse Claude Response').first().json.body_html, excerpt: $('Parse Claude Response').first().json.excerpt, status: \"draft\", categories: [(() => { const norm = $('Normalize Category Search').first().json; if (norm.found) return norm.id; try { return $('Create WP Category').first().json.id; } catch (e) { return null; } })()], tags: $('Finalize Tag IDs').first().json.tag_ids, featured_media: $('Finalize Featured Media').first().json.featured_media }) }}",
         "options": {}
       },
       "id": "a1138de5-cde5-4012-bb14-e5dc821483a9",
@@ -913,7 +1019,19 @@
       ]
     },
     "Claude Draft": { "main": [[{ "node": "Parse Claude Response", "type": "main", "index": 0 }]] },
-    "Parse Claude Response": { "main": [[{ "node": "Search WP Category", "type": "main", "index": 0 }]] },
+    "Parse Claude Response": { "main": [[{ "node": "Map Category to Image Query", "type": "main", "index": 0 }]] },
+    "Map Category to Image Query": { "main": [[{ "node": "Search Pexels Image", "type": "main", "index": 0 }]] },
+    "Search Pexels Image": { "main": [[{ "node": "Select Pexels Photo", "type": "main", "index": 0 }]] },
+    "Select Pexels Photo": { "main": [[{ "node": "IF Image Found", "type": "main", "index": 0 }]] },
+    "IF Image Found": {
+      "main": [
+        [{ "node": "Download Pexels Image", "type": "main", "index": 0 }],
+        [{ "node": "Finalize Featured Media", "type": "main", "index": 0 }]
+      ]
+    },
+    "Download Pexels Image": { "main": [[{ "node": "Upload Image to WordPress", "type": "main", "index": 0 }]] },
+    "Upload Image to WordPress": { "main": [[{ "node": "Finalize Featured Media", "type": "main", "index": 0 }]] },
+    "Finalize Featured Media": { "main": [[{ "node": "Search WP Category", "type": "main", "index": 0 }]] },
     "Search WP Category": { "main": [[{ "node": "Normalize Category Search", "type": "main", "index": 0 }]] },
     "Normalize Category Search": { "main": [[{ "node": "IF Category Found", "type": "main", "index": 0 }]] },
     "IF Category Found": {

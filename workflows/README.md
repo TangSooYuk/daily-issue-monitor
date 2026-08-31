@@ -1,5 +1,16 @@
 # trends-to-wordpress.n8n.json (v2 — Telegram 승인 + 수동 키워드 + 반복 방지)
 
+## v2.6 — 대표 이미지 자동 첨부 (신규)
+
+`Parse Claude Response`와 `Search WP Category` 사이에 Pexels 무료 스톡 사진 API를 이용한 대표 이미지 체인을 추가했습니다.
+
+- `Map Category to Image Query` — Claude가 고른 한글 카테고리(정치/경제/사회 등)를 영어 검색어로 변환합니다. 네이버 트렌드 키워드(인물명, 드라마 제목 등 한국 고유명사)로 직접 검색하면 Pexels에 결과가 거의 없어서, 카테고리 기반의 일반적인 영어 키워드로만 검색합니다 — 기사 내용과 정확히 일치하는 사진이 아니라 "분위기가 맞는" 장식용 이미지입니다.
+- `Search Pexels Image` → `Select Pexels Photo` → `IF Image Found` — 검색 결과가 없어도(`found: false`) 전체 발행 체인이 죽지 않고 대표 이미지 없이 계속 진행됩니다 (이 워크플로우 전체에 적용된 "빈 결과가 다운스트림을 막으면 안 된다" 원칙과 동일).
+- 이미지를 찾으면 `Download Pexels Image`(바이너리 다운로드) → `Upload Image to WordPress`(`/wp-json/wp/v2/media`에 업로드) → `Finalize Featured Media`가 업로드된 미디어 ID를, 못 찾으면 `0`을 반환합니다.
+- `Publish WordPress`의 요청 본문에 `featured_media` 필드가 추가되어, 초안이 대표 이미지가 지정된 상태로 등록됩니다.
+
+**⚠️ Import 후 필수**: [Pexels API](https://www.pexels.com/api/)에서 무료 API 키를 발급받아 `Search Pexels Image` 노드의 `Authorization` 헤더 값(`REPLACE_WITH_YOUR_PEXELS_API_KEY`)을 교체하세요 (Bearer 접두사 없이 키 값만). `Upload Image to WordPress` 노드도 다른 워드프레스 노드들과 마찬가지로 **"Gabia" Basic Auth 크리덴셜을 다시 선택**해야 합니다.
+
 ## v2.5 — 볼륨 게이트 + 수동 포스팅 6개월 윈도우 (신규)
 
 - **자동 트렌드 흐름**: 쿨다운을 통과한 후보 중 **검색 볼륨(`approx_traffic`) 1000 이상**인 것만 선택합니다. 1위가 미달이면 2위, 3위 순으로 내려가며 조건 맞는 걸 찾고, 전부 미달이면 "볼륨 있는 키워드가 선정되지 않았습니다" 메시지를 보내고 종료합니다 (쿨다운으로 후보 자체가 없는 경우와는 다른 메시지).
