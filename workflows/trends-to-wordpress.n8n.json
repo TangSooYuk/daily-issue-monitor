@@ -5,116 +5,194 @@
       "parameters": {
         "rule": {
           "interval": [
-            { "field": "hours", "hoursInterval": 3 }
+            {
+              "field": "hours",
+              "hoursInterval": 3
+            }
           ]
         }
       },
-      "id": "dad237ab-28d4-4a3e-933f-c80fea5a76da",
+      "id": "09c81b4b-f496-443f-9adb-b32fd6b8d5a0",
       "name": "Schedule Trigger",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [-11424, 896]
+      "position": [
+        -15440,
+        -80
+      ]
     },
     {
       "parameters": {
         "url": "https://trends.google.com/trending/rss?geo=KR&hl=ko&hours=48",
-        "options": { "response": { "response": { "responseFormat": "text" } } }
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
       },
-      "id": "7cba10ae-c05c-41a5-a185-6398dd0af63a",
+      "id": "0c6e4cde-13fa-4240-860a-3df88942971a",
       "name": "Fetch Trends RSS",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-11200, 896]
+      "position": [
+        -15216,
+        -80
+      ]
     },
     {
-      "parameters": { "options": {} },
-      "id": "0590fe80-5465-4a7a-bb09-701e8db86b82",
+      "parameters": {
+        "options": {}
+      },
+      "id": "883eaacc-992e-4126-8817-f37eb0b787b8",
       "name": "XML to JSON",
       "type": "n8n-nodes-base.xml",
       "typeVersion": 1,
-      "position": [-10976, 896]
+      "position": [
+        -14992,
+        -80
+      ]
     },
     {
       "parameters": {
         "jsCode": "const root = $input.first().json.rss.channel;\nconst channel = Array.isArray(root) ? root[0] : root;\nconst rawItems = channel.item;\nconst items = Array.isArray(rawItems) ? rawItems : [rawItems];\nconst trendDate = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10); // KST date, not UTC\n\nconst pick = (obj, key) => {\n  const v = obj?.[key];\n  return Array.isArray(v) ? v[0] : v;\n};\n\nconst results = items.slice(0, 20).map((item, idx) => ({\n  json: {\n    rank: idx + 1,\n    keyword: pick(item, 'title') || '',\n    approx_traffic: pick(item, 'ht:approx_traffic') || null,\n    trend_link: pick(item, 'link') || '',\n    region: 'KR',\n    trend_date: trendDate,\n    source: 'trend'\n  }\n}));\n\nreturn results;\n\n// NOTE: field names above (e.g. 'ht:approx_traffic') depend on how the\n// XML node namespaces tags in your n8n version. Verify against a live run."
       },
-      "id": "f408063c-1a44-4b25-b8f6-16d7af2c22e2",
+      "id": "010a696b-ff90-45ff-8294-576961fb1fe1",
       "name": "Extract Top 20",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-10752, 896]
+      "position": [
+        -14768,
+        -80
+      ]
     },
     {
-      "parameters": { "tableId": "trending_keywords", "dataToSend": "autoMapInputData" },
-      "id": "76f4aaf1-b226-4395-8038-d9cac9c223c2",
+      "parameters": {
+        "tableId": "trending_keywords",
+        "dataToSend": "autoMapInputData"
+      },
+      "id": "f431bae6-bab6-4548-b90a-e855031ab82f",
       "name": "Insert Keywords History",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [-10528, 896],
-      "credentials": { "supabaseApi": { "id": "APCjwvwaP8MxdSLA", "name": "Supabase account 2" } },
+      "position": [
+        -14544,
+        -80
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "APCjwvwaP8MxdSLA",
+          "name": "Supabase account 2"
+        }
+      },
       "onError": "continueRegularOutput",
       "notes": "Runs BEFORE Get Recently Posted (sequential, not parallel) so that this run's rows are guaranteed to exist -- with their DB id -- by the time Pick Next Keyword looks them up."
     },
     {
-      "parameters": { "operation": "getAll", "tableId": "trending_keywords", "returnAll": true },
-      "id": "d406476d-ca99-4c69-ada8-f34e48b364e6",
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "trending_keywords",
+        "returnAll": true
+      },
+      "id": "95bc7809-30ce-4598-a992-ddc66b31f6f3",
       "name": "Get Recently Posted",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [-10304, 896],
-      "credentials": { "supabaseApi": { "id": "APCjwvwaP8MxdSLA", "name": "Supabase account 2" } },
+      "position": [
+        -14320,
+        -80
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "APCjwvwaP8MxdSLA",
+          "name": "Supabase account 2"
+        }
+      },
       "notes": "Fetches ALL rows -- both the cooldown filtering and today's row-id lookup happen in the next Code node, to avoid depending on Supabase filter-param schema (which varies by n8n version)."
     },
     {
       "parameters": {
         "jsCode": "const COOLDOWN_DAYS = 14;\nconst MIN_VOLUME = 1000;\nconst cooldownMs = COOLDOWN_DAYS * 24 * 60 * 60 * 1000;\nconst now = Date.now();\nconst today = new Date(now + 9 * 60 * 60 * 1000).toISOString().slice(0, 10); // KST date, not UTC\n\nconst topKeywords = $('Extract Top 20').all().map(i => i.json); // ranked, index 0 = highest volume\nconst allRows = $input.all().map(i => i.json); // Get Recently Posted output (includes rows Insert Keywords History just wrote)\n\nconst recentlyPosted = new Set(\n  allRows\n    .filter(r => r.posted_at && (now - new Date(r.posted_at).getTime()) < cooldownMs)\n    .map(r => r.keyword)\n);\n\n// approx_traffic looks like '1000+', '5000+', etc. -- pull the digits out to compare.\nconst parseVolume = (s) => {\n  if (!s) return 0;\n  const digits = String(s).replace(/[^0-9]/g, '');\n  return digits ? parseInt(digits, 10) : 0;\n};\n\nconst eligible = topKeywords.filter(k => !recentlyPosted.has(k.keyword));\nif (eligible.length === 0) {\n  // Always return exactly ONE item (found:false) instead of [] -- otherwise n8n skips\n  // every downstream node and the schedule run ends with zero visible trace.\n  return [{ json: { found: false, reason: 'cooldown' } }];\n}\n\n// Walk down the ranked, cooldown-eligible list for the first one that also clears\n// the volume bar -- rather than only checking the #1 spot and giving up immediately.\nconst candidate = eligible.find(k => parseVolume(k.approx_traffic) >= MIN_VOLUME);\nif (!candidate) {\n  return [{ json: { found: false, reason: 'low_volume' } }];\n}\n\nconst dbRow = allRows.find(r => r.keyword === candidate.keyword && r.trend_date === today && r.region === 'KR');\nif (!dbRow) {\n  // Should not happen since Insert Keywords History ran first, but bail safely if it does.\n  return [{ json: { found: false, reason: 'cooldown' } }];\n}\n\nreturn [{\n  json: {\n    found: true,\n    id: dbRow.id,\n    keyword: dbRow.keyword,\n    approx_traffic: dbRow.approx_traffic,\n    trend_link: dbRow.trend_link\n  }\n}];"
       },
-      "id": "75bd4df8-d6d2-4c76-baa2-8202a37b518e",
+      "id": "aa4059d2-d5d2-4311-b833-a9d453c87282",
       "name": "Pick Next Keyword",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-10080, 896]
+      "position": [
+        -14096,
+        -80
+      ]
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 1 },
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
           "conditions": [
-            { "leftValue": "={{ $json.found ? 'true' : 'false' }}", "rightValue": "true", "operator": { "type": "string", "operation": "equals" } }
+            {
+              "leftValue": "={{ $json.found ? 'true' : 'false' }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
           ],
           "combinator": "and"
         },
         "options": {}
       },
-      "id": "b0000001-0001-4a11-9101-000000000001",
+      "id": "2b6e25eb-5baf-493d-9157-147faff7b6ea",
       "name": "IF New Keyword Found",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [-9968, 1040],
+      "position": [
+        -13872,
+        -80
+      ],
       "notes": "true -> a new keyword was found, proceed to approval. false -> every top-20 trend is still on cooldown (or the insert silently failed) -- notifies instead of ending this schedule run with zero trace."
     },
     {
       "parameters": {
         "chatId": "624361524",
         "text": "={{ $json.reason === 'low_volume' ? '이번 회차(3시간 주기)에는 검색 볼륨(1000+) 조건을 만족하는 키워드가 없어 건너뜁니다.' : '이번 회차(3시간 주기)에는 새로 포스팅할 트렌드 키워드가 없어 건너뜁니다.\\n(상위 20개 키워드가 모두 최근 14일 내 처리된 상태이거나, 키워드 저장 과정에 문제가 있을 수 있습니다.)' }}",
-        "additionalFields": { "parse_mode": "Markdown" }
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
       },
-      "id": "b0000001-0002-4a11-9101-000000000002",
+      "id": "74124bfa-0900-4299-8ccf-882e38e007fb",
       "name": "Telegram: No New Keyword",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [-9968, 1200],
-      "credentials": { "telegramApi": { "id": "7oxTl9ZzFfqBvEU2", "name": "Telegram Bot" } }
+      "position": [
+        -13648,
+        16
+      ],
+      "webhookId": "fd5358bc-0781-493f-ae37-085d8475bec9",
+      "credentials": {
+        "telegramApi": {
+          "id": "7oxTl9ZzFfqBvEU2",
+          "name": "Telegram Bot"
+        }
+      }
     },
     {
       "parameters": {
         "jsCode": "// Loop entry point: reached either from Pick Next Keyword (attempt starts at 1)\n// or from IF Approval Retry looping back (attempt already incremented). Normalizes\n// the shape either way so Send Telegram / Wait / Evaluate can rely on a stable node name.\nconst input = $input.first().json;\nreturn [{\n  json: {\n    id: input.id,\n    keyword: input.keyword,\n    approx_traffic: input.approx_traffic,\n    trend_link: input.trend_link,\n    attempt: input.attempt || 1\n  }\n}];"
       },
-      "id": "140cef4e-e7d5-4cf1-82b8-10e14aba8cb1",
+      "id": "6aa49ea0-9147-4b6c-ad2a-5a2b1d832208",
       "name": "Keyword Approval Attempt",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-9856, 896]
+      "position": [
+        -13648,
+        -176
+      ]
     },
     {
       "parameters": {
@@ -126,22 +204,42 @@
             {
               "row": {
                 "buttons": [
-                  { "text": "✅ 승인", "additionalFields": { "url": "={{ $execution.resumeUrl }}&decision=approve" } },
-                  { "text": "❌ 거절", "additionalFields": { "url": "={{ $execution.resumeUrl }}&decision=reject" } }
+                  {
+                    "text": "✅ 승인",
+                    "additionalFields": {
+                      "url": "={{ $execution.resumeUrl }}&decision=approve"
+                    }
+                  },
+                  {
+                    "text": "❌ 거절",
+                    "additionalFields": {
+                      "url": "={{ $execution.resumeUrl }}&decision=reject"
+                    }
+                  }
                 ]
               }
             }
           ]
         },
-        "additionalFields": { "parse_mode": "Markdown" }
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
       },
-      "id": "0812d41c-4a51-4569-bc02-bb99301d8b4f",
+      "id": "64cbcd6c-0472-4483-9e84-624de00e6927",
       "name": "Send Telegram Keyword Approval",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [-9632, 816],
+      "position": [
+        -13424,
+        -256
+      ],
       "webhookId": "51e32524-3e7c-4b16-a3df-4f02230b2aa2",
-      "credentials": { "telegramApi": { "id": "7oxTl9ZzFfqBvEU2", "name": "Telegram Bot" } },
+      "credentials": {
+        "telegramApi": {
+          "id": "7oxTl9ZzFfqBvEU2",
+          "name": "Telegram Bot"
+        }
+      },
       "notes": "VERIFY IN UI: this inlineKeyboard structure matches n8n's Telegram node UI-driven format, but field names can still shift between versions. If buttons don't render after import, open Reply Markup and confirm the two buttons + their URL values are intact. NOTE: once a retry fires, only the LATEST message's buttons are valid -- earlier messages' buttons point to a superseded wait instance."
     },
     {
@@ -152,11 +250,14 @@
         "resumeUnit": "minutes",
         "options": {}
       },
-      "id": "8c4c0928-0669-45f6-836d-6a9f19543fda",
+      "id": "ddba38ac-76a4-47e6-8cfa-75fdd3fa1ecc",
       "name": "Wait Keyword Approval",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
-      "position": [-9408, 816],
+      "position": [
+        -13200,
+        -256
+      ],
       "webhookId": "wait-keyword-approval-hook",
       "notes": "VERIFY IN UI: open this node, confirm Resume=On Webhook Call, then toggle 'Limit Wait Time' ON, Limit Type=After Time Interval, and check the Amount field accepts the expression above (switch it to expression/fx mode if it was imported as a plain number)."
     },
@@ -164,134 +265,222 @@
       "parameters": {
         "jsCode": "// $json here is either the Telegram webhook resume payload (button click) or,\n// if Wait's time limit fired first, a passthrough of whatever fed the Wait node --\n// so attempt/keyword data always comes from the named Keyword Approval Attempt node.\nconst attemptData = $('Keyword Approval Attempt').first().json;\nconst hasDecision = $json.query && typeof $json.query.decision !== 'undefined';\n\nif (hasDecision) {\n  return [{\n    json: {\n      ...attemptData,\n      outcome: $json.query.decision === 'approve' ? 'proceed' : 'rejected'\n    }\n  }];\n}\n\nconst MAX_ATTEMPTS = 5;\nif (attemptData.attempt >= MAX_ATTEMPTS) {\n  return [{ json: { ...attemptData, outcome: 'proceed', auto_approved: true } }];\n}\nreturn [{ json: { ...attemptData, attempt: attemptData.attempt + 1, outcome: 'retry' } }];"
       },
-      "id": "92398892-3943-4c57-bdbc-199e197b6645",
+      "id": "553d6011-90df-4141-ba31-433d2765ea8e",
       "name": "Evaluate Keyword Approval",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-9184, 816]
+      "position": [
+        -12976,
+        -256
+      ]
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 1 },
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
           "conditions": [
-            { "leftValue": "={{ $json.outcome }}", "rightValue": "proceed", "operator": { "type": "string", "operation": "equals" } }
+            {
+              "leftValue": "={{ $json.outcome }}",
+              "rightValue": "proceed",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
           ],
           "combinator": "and"
         },
         "options": {}
       },
-      "id": "ccd7f559-6c99-4a2f-8c3c-319f0ac7db3f",
+      "id": "774a4ed1-68a5-4f32-bd10-d25c27e5c8bc",
       "name": "IF Approval Proceed",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [-8960, 816]
+      "position": [
+        -12752,
+        -256
+      ]
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 1 },
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
           "conditions": [
-            { "leftValue": "={{ $json.outcome }}", "rightValue": "retry", "operator": { "type": "string", "operation": "equals" } }
+            {
+              "leftValue": "={{ $json.outcome }}",
+              "rightValue": "retry",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
           ],
           "combinator": "and"
         },
         "options": {}
       },
-      "id": "11610efd-da4e-4245-87c5-18423a313364",
+      "id": "0f3f47da-1114-4dde-9f18-161aa76d8e8d",
       "name": "IF Approval Retry",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [-8736, 896],
+      "position": [
+        -12528,
+        -176
+      ],
       "notes": "true -> loops back to Keyword Approval Attempt with attempt+1. false here means outcome was 'rejected' -- now notifies via Telegram: Keyword Rejected instead of ending silently."
     },
     {
       "parameters": {
         "chatId": "624361524",
         "text": "=키워드 *{{ $json.keyword }}* 포스팅이 거절되어 이번 회차는 종료합니다.",
-        "additionalFields": { "parse_mode": "Markdown" }
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
       },
-      "id": "b0000001-0003-4a11-9101-000000000003",
+      "id": "a56bdf34-f5f9-4f24-8397-a3a6cc82f56b",
       "name": "Telegram: Keyword Rejected",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [-8512, 1040],
-      "credentials": { "telegramApi": { "id": "7oxTl9ZzFfqBvEU2", "name": "Telegram Bot" } }
+      "position": [
+        -12304,
+        -176
+      ],
+      "webhookId": "80e8f6ea-20f3-40ea-8635-e202761ca2d1",
+      "credentials": {
+        "telegramApi": {
+          "id": "7oxTl9ZzFfqBvEU2",
+          "name": "Telegram Bot"
+        }
+      }
     },
     {
       "parameters": {
-        "updates": ["message"],
+        "updates": [
+          "message"
+        ],
         "additionalFields": {}
       },
-      "id": "7902a2d1-dfeb-452f-a578-1fcc7f975a1a",
+      "id": "be0662f6-1d23-454b-bb0f-f8d100139c59",
       "name": "Telegram Trigger (Manual Keyword)",
       "type": "n8n-nodes-base.telegramTrigger",
       "typeVersion": 1.1,
-      "position": [-9408, 1296],
+      "position": [
+        -13200,
+        224
+      ],
       "webhookId": "4e0d1c86-3d27-4e17-98a0-39682dafb495",
-      "credentials": { "telegramApi": { "id": "7oxTl9ZzFfqBvEU2", "name": "Telegram Bot" } }
+      "credentials": {
+        "telegramApi": {
+          "id": "7oxTl9ZzFfqBvEU2",
+          "name": "Telegram Bot"
+        }
+      }
     },
     {
       "parameters": {
         "jsCode": "const message = $input.first().json.message;\nconst text = (message && message.text) || '';\n// Tolerates group-chat style '/post@BotName 키워드' as well as plain '/post 키워드'.\nconst match = text.match(/^\\/post(?:@\\w+)?\\s+(.+)/i);\nif (!match) {\n  return []; // not a /post command -- ignore\n}\nconst keyword = match[1].trim();\nconst today = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10); // KST date, not UTC\nreturn [{\n  json: {\n    keyword,\n    rank: null,\n    approx_traffic: null,\n    trend_link: null,\n    region: 'KR',\n    trend_date: today,\n    source: 'manual'\n  }\n}];"
       },
-      "id": "2e02da66-61ff-4427-88f6-67d13abec27c",
+      "id": "e5bd9e63-7d48-4035-ac32-9b8ecd3c4e08",
       "name": "Parse Manual Keyword",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-9184, 1200]
+      "position": [
+        -12976,
+        128
+      ]
     },
     {
-      "parameters": { "tableId": "trending_keywords", "dataToSend": "autoMapInputData" },
-      "id": "336be204-971f-464f-b14c-687a15252433",
+      "parameters": {
+        "tableId": "trending_keywords",
+        "dataToSend": "autoMapInputData"
+      },
+      "id": "6cefd2af-821a-4d28-8ffb-04b4e91095cf",
       "name": "Insert Manual Keyword",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [-8960, 1200],
-      "credentials": { "supabaseApi": { "id": "APCjwvwaP8MxdSLA", "name": "Supabase account 2" } },
+      "position": [
+        -12752,
+        128
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "APCjwvwaP8MxdSLA",
+          "name": "Supabase account 2"
+        }
+      },
       "onError": "continueRegularOutput"
     },
     {
       "parameters": {
         "jsCode": "const message = $input.first().json.message;\nconst text = (message && message.text) || '';\nconst match = text.match(/^(승인|거절)\\s*[:\\-]?\\s*([\\s\\S]*)$/);\nif (!match) {\n  return []; // not an approval-style reply -- ignore (e.g. /post commands, unrelated chat)\n}\nconst decision = match[1] === '승인' ? 'approve' : 'reject';\nconst comment = match[2].trim() || null;\nreturn [{ json: { decision, comment } }];"
       },
-      "id": "37912776-a7c6-4942-8682-cab066368eba",
+      "id": "7780502c-c9e3-40be-baff-5a0a220eb4d2",
       "name": "Parse Approval Comment",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-9184, 1392]
+      "position": [
+        -12976,
+        320
+      ]
     },
     {
-      "parameters": { "operation": "getAll", "tableId": "trending_keywords", "returnAll": true },
-      "id": "b6cd0b15-68f1-4c93-ba0c-cb168edbad24",
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "trending_keywords",
+        "returnAll": true
+      },
+      "id": "ae3e6695-3fc0-4eff-abb5-406dbc932fbf",
       "name": "Get Rows For Approval Lookup",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [-8960, 1392],
-      "credentials": { "supabaseApi": { "id": "APCjwvwaP8MxdSLA", "name": "Supabase account 2" } },
+      "position": [
+        -12752,
+        320
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "APCjwvwaP8MxdSLA",
+          "name": "Supabase account 2"
+        }
+      },
       "notes": "Fetches all rows -- filtering to the pending one happens in the next Code node, same pattern as Get Recently Posted."
     },
     {
       "parameters": {
         "jsCode": "const decision = $('Parse Approval Comment').first().json.decision;\nconst comment = $('Parse Approval Comment').first().json.comment;\nconst rows = $input.all().map(i => i.json);\nconst pending = rows.filter(r => r.pending_review_resume_url).sort((a, b) => b.id - a.id)[0];\nif (!pending) {\n  return []; // nothing currently waiting on a news-review approval -- ignore this reply\n}\nreturn [{ json: { decision, comment, resume_url: pending.pending_review_resume_url, id: pending.id } }];"
       },
-      "id": "0036770e-1ef8-497f-8d45-7b2d7fb634e0",
+      "id": "d34873fd-5818-4a4a-8bec-5d1dd5c4dd7f",
       "name": "Find Pending Resume URL",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-8736, 1392]
+      "position": [
+        -12528,
+        320
+      ]
     },
     {
       "parameters": {
-        "method": "GET",
         "url": "={{ $json.resume_url }}&decision={{ $json.decision }}{{ $json.comment ? '&comment=' + encodeURIComponent($json.comment) : '' }}",
         "options": {}
       },
-      "id": "0603c718-48bb-46f9-90ba-71888968557c",
+      "id": "8f0b0d4a-46e8-415e-911b-1fc508c43b1a",
       "name": "Resolve Pending Approval",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-8512, 1392],
+      "position": [
+        -12304,
+        320
+      ],
       "onError": "continueRegularOutput",
       "notes": "Same mechanism as the inline keyboard buttons (a GET to $execution.resumeUrl), just triggered from a typed reply instead of a button click. If this errors, most likely the Wait instance already resumed (button was clicked first) or the retry loop moved past it -- a failure here just means the message came too late."
     },
@@ -301,42 +490,73 @@
         "tableId": "trending_keywords",
         "filters": {
           "conditions": [
-            { "keyName": "id", "condition": "eq", "keyValue": "={{ $('Find Pending Resume URL').first().json.id }}" }
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Find Pending Resume URL').first().json.id }}"
+            }
           ]
         },
-        "fieldsUi": { "fieldValues": [ { "fieldId": "pending_review_resume_url" } ] }
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "pending_review_resume_url"
+            }
+          ]
+        }
       },
-      "id": "ab89f008-46fb-4cc3-b015-ffb13760786c",
+      "id": "8d730be4-4436-43a0-abf9-b373e9d82d8a",
       "name": "Clear Pending Resume URL",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [-8288, 1392],
-      "credentials": { "supabaseApi": { "id": "APCjwvwaP8MxdSLA", "name": "Supabase account 2" } },
+      "position": [
+        -12080,
+        320
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "APCjwvwaP8MxdSLA",
+          "name": "Supabase account 2"
+        }
+      },
       "onError": "continueRegularOutput"
     },
     {
       "parameters": {
         "chatId": "624361524",
         "text": "={{ $('Find Pending Resume URL').first().json.decision === 'approve' ? '✅ 코멘트 반영해서 초안 작성을 진행할게요.' : '❌ 거절 처리했습니다.' }}{{ $('Find Pending Resume URL').first().json.comment ? '\\n\\n남기신 코멘트: ' + $('Find Pending Resume URL').first().json.comment : '' }}",
-        "additionalFields": { "parse_mode": "Markdown" }
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
       },
-      "id": "8719b953-1d1a-4d08-82cd-b4de715bf8cc",
+      "id": "abf3f0ae-a3dc-4907-850f-81599a34b909",
       "name": "Telegram: Comment Approval Ack",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [-8064, 1392],
+      "position": [
+        -11856,
+        320
+      ],
       "webhookId": "369293ce-1aef-45f9-8026-87cee3793b82",
-      "credentials": { "telegramApi": { "id": "7oxTl9ZzFfqBvEU2", "name": "Telegram Bot" } }
+      "credentials": {
+        "telegramApi": {
+          "id": "7oxTl9ZzFfqBvEU2",
+          "name": "Telegram Bot"
+        }
+      }
     },
     {
       "parameters": {
         "jsCode": "// Single convergence point for Flow A (approved trend, arrives after a Wait node -- so $json/$input\n// at this point would just be the Telegram resume payload, NOT the keyword data) and Flow B (manual\n// /post, arrives directly with no Wait in between). Reference the real source explicitly by name.\nlet source;\nlet flowSource;\ntry {\n  source = $('Pick Next Keyword').first().json;\n  flowSource = 'trend';\n} catch (e) {\n  source = $('Insert Manual Keyword').first().json;\n  flowSource = 'manual';\n}\nreturn [{\n  json: {\n    id: source.id,\n    keyword: source.keyword,\n    trend_link: source.trend_link || null,\n    source: flowSource\n  }\n}];"
       },
-      "id": "ce1280a8-38b1-470b-a91f-c7083f8b2e7a",
+      "id": "320888f0-8aa3-476d-81bd-5e4e1e9bbaf2",
       "name": "Keyword Context",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-8736, 1088]
+      "position": [
+        -12528,
+        16
+      ]
     },
     {
       "parameters": {
@@ -344,111 +564,181 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "X-NCP-APIGW-API-KEY-ID", "value": "REPLACE_WITH_YOUR_CLIENT_ID" },
-            { "name": "X-NCP-APIGW-API-KEY", "value": "REPLACE_WITH_YOUR_CLIENT_SECRET" }
+            {
+              "name": "X-NCP-APIGW-API-KEY-ID",
+              "value": "REPLACE_WITH_YOUR_CLIENT_ID"
+            },
+            {
+              "name": "X-NCP-APIGW-API-KEY",
+              "value": "REPLACE_WITH_YOUR_CLIENT_SECRET"
+            }
           ]
         },
         "options": {}
       },
-      "id": "f87270d2-eb22-4625-8ad5-dc4286dbfe14",
+      "id": "8cc7b7e8-1134-48c0-b59c-a233687ad2bd",
       "name": "Search Naver News",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-8512, 1088],
+      "position": [
+        -12304,
+        16
+      ],
       "notes": "sort=date so the most recent articles come first, required for the recency filter next. VERIFY IN UI: re-enter your real X-NCP-APIGW-API-KEY-ID/SECRET here after import -- the committed JSON keeps placeholders since this repo is public."
     },
     {
       "parameters": {
         "jsCode": "const keywordCtx = $('Keyword Context').first().json;\n// Manual /post posts can reach back 6 months (roughly 182 days) since they're about\n// a topic the user is personally interested in, not necessarily breaking news;\n// automatic trend posts stay tight at 48h since the whole point there is freshness.\nconst RECENCY_DAYS = keywordCtx.source === 'manual' ? 182 : 2;\nconst response = $input.first().json;\nconst articles = response.items || [];\nconst cutoff = Date.now() - RECENCY_DAYS * 24 * 3600 * 1000;\n\nconst recent = articles\n  .filter(a => {\n    const t = new Date(a.pubDate).getTime();\n    return !isNaN(t) && t >= cutoff;\n  })\n  .map(a => ({\n    keyword_id: keywordCtx.id,\n    title: (a.title || '').replace(/<[^>]+>/g, ''),\n    url: a.originallink || a.link,\n    source: 'naver_news',\n    published_at: a.pubDate\n  }));\n\n// Always return exactly ONE item (even when recent.length === 0) -- n8n skips\n// downstream nodes entirely when an item count hits zero, which used to silently\n// kill the 'no recent news' Telegram notification. IF News Found now reads\n// count/articles directly off this single item instead of depending on\n// Insert News/Aggregate News having actually run.\nreturn [{ json: { keyword_id: keywordCtx.id, count: recent.length, articles: recent } }];"
       },
-      "id": "0196c1c7-b3fc-408e-9098-10377c641fce",
+      "id": "9d9aa39a-103d-43d9-8908-da4bd96414f1",
       "name": "Parse & Split Articles",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-8288, 1088]
+      "position": [
+        -12080,
+        16
+      ]
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 1 },
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
           "conditions": [
-            { "leftValue": "={{ $json.count }}", "rightValue": 0, "operator": { "type": "number", "operation": "gt" } }
+            {
+              "leftValue": "={{ $json.count }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
           ],
           "combinator": "and"
         },
         "options": {}
       },
-      "id": "3f299133-ad32-4067-b9a7-c1c93107d9c0",
+      "id": "8bd279a4-f977-4ebd-b771-9c147e11d0c3",
       "name": "IF News Found",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [-8064, 1088],
+      "position": [
+        -11856,
+        16
+      ],
       "notes": "Moved to run directly off Parse & Split Articles's always-present single item (instead of after Insert News/Aggregate News), so the 'no recent news' branch fires reliably even when count is 0 -- previously zero articles meant Insert News/Aggregate News never ran at all, silently killing this check and the Telegram notification below."
     },
     {
-      "parameters": { "fieldToSplitOut": "articles", "options": {} },
-      "id": "a3b06234-3891-41c3-9599-fb0e9d64d721",
+      "parameters": {
+        "fieldToSplitOut": "articles",
+        "options": {}
+      },
+      "id": "2aa11708-af2f-42a9-ad4c-48ae964a5534",
       "name": "Split Out Articles",
       "type": "n8n-nodes-base.splitOut",
       "typeVersion": 1,
-      "position": [-7840, 992]
+      "position": [
+        -11632,
+        -80
+      ]
     },
     {
-      "parameters": { "tableId": "keyword_news", "dataToSend": "autoMapInputData" },
-      "id": "373f5e83-4311-4587-9177-33dfc3f4442c",
+      "parameters": {
+        "tableId": "keyword_news",
+        "dataToSend": "autoMapInputData"
+      },
+      "id": "da7930ad-e953-432d-978e-ada5f83b1453",
       "name": "Insert News",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [-7616, 992],
-      "credentials": { "supabaseApi": { "id": "APCjwvwaP8MxdSLA", "name": "Supabase account 2" } },
+      "position": [
+        -11408,
+        -80
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "APCjwvwaP8MxdSLA",
+          "name": "Supabase account 2"
+        }
+      },
       "onError": "continueRegularOutput"
     },
     {
       "parameters": {
         "fieldsToAggregate": {
-          "fieldToAggregate": [ { "fieldToAggregate": "title" }, { "fieldToAggregate": "url" } ]
+          "fieldToAggregate": [
+            {
+              "fieldToAggregate": "title"
+            },
+            {
+              "fieldToAggregate": "url"
+            }
+          ]
         },
         "options": {}
       },
-      "id": "9e47a840-3f70-4a74-aeb7-a041675c21c8",
+      "id": "3df118c4-e8bc-42f2-80f3-cfc159a86c59",
       "name": "Aggregate News",
       "type": "n8n-nodes-base.aggregate",
       "typeVersion": 1,
-      "position": [-7392, 992]
+      "position": [
+        -11184,
+        -80
+      ]
     },
     {
       "parameters": {
         "chatId": "624361524",
         "text": "=키워드 *{{ $('Keyword Context').first().json.keyword }}* 에 대해 최근 {{ $('Keyword Context').first().json.source === 'manual' ? '6개월' : '48시간' }} 내 뉴스가 없어 이번 회차는 건너뜁니다.",
-        "additionalFields": { "parse_mode": "Markdown" }
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
       },
-      "id": "10d1cf45-e2c3-44b7-92c2-5b24da9be78b",
+      "id": "5cb472b0-e48d-4dcf-bdcb-095fbb7e1e1f",
       "name": "Telegram: No Recent News",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [-7840, 1184],
+      "position": [
+        -11632,
+        112
+      ],
       "webhookId": "a35511b2-4fa3-4098-a012-323382c0b6fb",
-      "credentials": { "telegramApi": { "id": "7oxTl9ZzFfqBvEU2", "name": "Telegram Bot" } }
+      "credentials": {
+        "telegramApi": {
+          "id": "7oxTl9ZzFfqBvEU2",
+          "name": "Telegram Bot"
+        }
+      }
     },
     {
       "parameters": {
         "jsCode": "const keywordCtx = $('Keyword Context').first().json;\nconst agg = $input.first().json;\nconst titles = agg.title || [];\nconst urls = agg.url || [];\nconst newsLines = titles.map((t, i) => `${i + 1}. ${t}\\n   ${urls[i] || ''}`).join('\\n') || '(관련 뉴스 없음)';\n\nreturn [{\n  json: {\n    id: keywordCtx.id,\n    keyword: keywordCtx.keyword,\n    trend_link: keywordCtx.trend_link,\n    news_list: newsLines\n  }\n}];"
       },
-      "id": "204d16e9-5ef8-4af3-90b2-16a8e5a38dae",
+      "id": "27adad76-b1ef-4f6e-8f85-459b8951f85b",
       "name": "Build News Summary",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-7168, 992]
+      "position": [
+        -10960,
+        -80
+      ]
     },
     {
       "parameters": {
         "jsCode": "// Loop entry point: reached either from Build News Summary (attempt starts at 1)\n// or from IF News Retry looping back (attempt already incremented).\nconst input = $input.first().json;\nreturn [{\n  json: {\n    id: input.id,\n    keyword: input.keyword,\n    trend_link: input.trend_link,\n    news_list: input.news_list,\n    attempt: input.attempt || 1\n  }\n}];"
       },
-      "id": "89d39295-9e70-43a2-b261-e0c7c8f76bf3",
+      "id": "b2a2b64d-f945-4d48-87fc-6a9834ea0288",
       "name": "News Review Attempt",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-6944, 992]
+      "position": [
+        -10736,
+        -80
+      ]
     },
     {
       "parameters": {
@@ -460,22 +750,42 @@
             {
               "row": {
                 "buttons": [
-                  { "text": "✅ 진행", "additionalFields": { "url": "={{ $execution.resumeUrl }}&decision=approve" } },
-                  { "text": "❌ 취소", "additionalFields": { "url": "={{ $execution.resumeUrl }}&decision=reject" } }
+                  {
+                    "text": "✅ 진행",
+                    "additionalFields": {
+                      "url": "={{ $execution.resumeUrl }}&decision=approve"
+                    }
+                  },
+                  {
+                    "text": "❌ 취소",
+                    "additionalFields": {
+                      "url": "={{ $execution.resumeUrl }}&decision=reject"
+                    }
+                  }
                 ]
               }
             }
           ]
         },
-        "additionalFields": { "parse_mode": "Markdown" }
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
       },
-      "id": "875834a5-c162-41fa-9aa8-fca50585f8f0",
+      "id": "61b32234-7050-4d3e-819b-26e04c502439",
       "name": "Send Telegram News Review",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [-6720, 912],
+      "position": [
+        -10512,
+        -160
+      ],
       "webhookId": "a49d950b-bff9-43e9-af65-b7661a1d27e9",
-      "credentials": { "telegramApi": { "id": "7oxTl9ZzFfqBvEU2", "name": "Telegram Bot" } },
+      "credentials": {
+        "telegramApi": {
+          "id": "7oxTl9ZzFfqBvEU2",
+          "name": "Telegram Bot"
+        }
+      },
       "notes": "Same inlineKeyboard structure as the other approval node -- verify buttons survive import. Once a retry fires, only the LATEST message's buttons are valid."
     },
     {
@@ -484,17 +794,36 @@
         "tableId": "trending_keywords",
         "filters": {
           "conditions": [
-            { "keyName": "id", "condition": "eq", "keyValue": "={{ $('News Review Attempt').first().json.id }}" }
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('News Review Attempt').first().json.id }}"
+            }
           ]
         },
-        "fieldsUi": { "fieldValues": [ { "fieldId": "pending_review_resume_url", "fieldValue": "={{ $execution.resumeUrl }}" } ] }
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "pending_review_resume_url",
+              "fieldValue": "={{ $execution.resumeUrl }}"
+            }
+          ]
+        }
       },
-      "id": "47e90000-dd02-441f-9fb9-22fe3f3b1b6b",
+      "id": "1dc3a5dd-14dc-4bcf-81bb-d334d4476abf",
       "name": "Store Pending Resume URL",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [-6496, 912],
-      "credentials": { "supabaseApi": { "id": "APCjwvwaP8MxdSLA", "name": "Supabase account 2" } },
+      "position": [
+        -10288,
+        -160
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "APCjwvwaP8MxdSLA",
+          "name": "Supabase account 2"
+        }
+      },
       "onError": "continueRegularOutput",
       "notes": "Persists this attempt's resume URL so a free-text '승인: 코멘트' Telegram reply can resume this exact Wait instance later. Runs on every retry attempt, so it always holds the latest live resume URL."
     },
@@ -506,72 +835,119 @@
         "resumeUnit": "minutes",
         "options": {}
       },
-      "id": "fa2b6aa0-223c-4ac7-96b4-02090cd86e9d",
+      "id": "9ed306c8-a6ff-4e9a-8bea-a112a7b3fa88",
       "name": "Wait News Review",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
-      "position": [-6272, 912],
+      "position": [
+        -10064,
+        -160
+      ],
       "webhookId": "wait-news-review-hook",
+      "alwaysOutputData": false,
       "notes": "VERIFY IN UI: same as Wait Keyword Approval -- confirm Limit Wait Time toggle + expression-mode Amount field survive import."
     },
     {
       "parameters": {
         "jsCode": "const attemptData = $('News Review Attempt').first().json;\nconst hasDecision = $json.query && typeof $json.query.decision !== 'undefined';\n\nif (hasDecision) {\n  return [{\n    json: {\n      ...attemptData,\n      outcome: $json.query.decision === 'approve' ? 'proceed' : 'rejected',\n      comment: $json.query.comment || null\n    }\n  }];\n}\n\nconst MAX_ATTEMPTS = 5;\nif (attemptData.attempt >= MAX_ATTEMPTS) {\n  return [{ json: { ...attemptData, outcome: 'proceed', auto_approved: true, comment: null } }];\n}\nreturn [{ json: { ...attemptData, attempt: attemptData.attempt + 1, outcome: 'retry' } }];"
       },
-      "id": "33876ae0-edf2-4012-9e7d-31d27e95f84d",
+      "id": "be9f2e25-5094-4ccb-a838-3a52135454e9",
       "name": "Evaluate News Review",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-6048, 912]
+      "position": [
+        -9840,
+        -160
+      ]
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 1 },
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
           "conditions": [
-            { "leftValue": "={{ $json.outcome }}", "rightValue": "proceed", "operator": { "type": "string", "operation": "equals" } }
+            {
+              "leftValue": "={{ $json.outcome }}",
+              "rightValue": "proceed",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
           ],
           "combinator": "and"
         },
         "options": {}
       },
-      "id": "17db2b34-6320-4ab5-90ec-425c1183eb1a",
+      "id": "4639cddd-1bb9-4251-9a9c-2bbb1405dd34",
       "name": "IF News Proceed",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [-5824, 912]
+      "position": [
+        -9616,
+        -160
+      ]
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 1 },
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
           "conditions": [
-            { "leftValue": "={{ $json.outcome }}", "rightValue": "retry", "operator": { "type": "string", "operation": "equals" } }
+            {
+              "leftValue": "={{ $json.outcome }}",
+              "rightValue": "retry",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
           ],
           "combinator": "and"
         },
         "options": {}
       },
-      "id": "5cb65ec8-662a-4cf3-8c8f-41288023fc88",
+      "id": "bc38313c-57a3-460a-a732-5c0e0abe1a58",
       "name": "IF News Retry",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [-5600, 1088],
+      "position": [
+        -9392,
+        16
+      ],
       "notes": "true -> loops back to News Review Attempt with attempt+1. false means outcome was 'rejected' -> Telegram: News Review Rejected."
     },
     {
       "parameters": {
         "chatId": "624361524",
         "text": "=키워드 *{{ $('Keyword Context').first().json.keyword }}* 초안 작성이 취소되었습니다.",
-        "additionalFields": { "parse_mode": "Markdown" }
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
       },
-      "id": "368008b4-3b92-4c18-bb93-5c231c38da6c",
+      "id": "fb56b212-c9ff-4e3b-8fe1-1287ac213428",
       "name": "Telegram: News Review Rejected",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [-5376, 1088],
+      "position": [
+        -9168,
+        16
+      ],
       "webhookId": "ebe256b3-7a2f-4cff-bdeb-e660d4b3589a",
-      "credentials": { "telegramApi": { "id": "7oxTl9ZzFfqBvEU2", "name": "Telegram Bot" } }
+      "credentials": {
+        "telegramApi": {
+          "id": "7oxTl9ZzFfqBvEU2",
+          "name": "Telegram Bot"
+        }
+      }
     },
     {
       "parameters": {
@@ -582,72 +958,87 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "anthropic-version", "value": "2023-06-01" },
-            { "name": "content-type", "value": "application/json" }
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
           ]
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ model: \"claude-sonnet-5\", max_tokens: 4096, tools: [{ name: \"blog_draft\", description: \"워드프레스에 바로 등록 가능한 블로그 초안 생성\", input_schema: { type: \"object\", properties: { title: { type: \"string\" }, body_html: { type: \"string\" }, excerpt: { type: \"string\" }, tags: { type: \"array\", items: { type: \"string\" } }, category: { type: \"string\", enum: [\"정치\", \"경제\", \"사회\", \"생활/문화\", \"IT/과학\", \"연예\", \"스포츠\", \"국제\", \"기타\"] }, meta_description: { type: \"string\" } }, required: [\"title\", \"body_html\", \"excerpt\", \"tags\", \"category\", \"meta_description\"] } }], tool_choice: { type: \"tool\", name: \"blog_draft\" }, messages: [{ role: \"user\", content: (() => { const base = `지금 화제인 키워드: ${$('Build News Summary').first().json.keyword}\\n\\n관련 뉴스:\\n${$('Build News Summary').first().json.news_list}\\n\\nGoogle Trends 원본 링크: ${$('Build News Summary').first().json.trend_link}\\n\\n위 내용을 참고해서 이 키워드를 자연스럽게 다루는 한국어 블로그 글을 작성해줘.\\n\\n작성 지침:\\n- 도입부는 '~가 화제인 이유는', '~에 대해 알아보겠습니다' 같은 상투적이고 AI스러운 문장으로 시작하지 마. 매번 다른 각도로 -- 최근 반응, 지금 분위기, 사람들이 주목하는 포인트 등 -- 자연스럽게 짚으면서 이 키워드로 시작해줘. 매 포스팅마다 도입부 스타일을 다르게 해줘.\\n- body_html 끝부분은 부가 설명이 아니라 글의 흐름을 자연스럽게 마무리하는 문단으로 끝내고, 참고한 뉴스 출처 링크를 그 안에 자연스럽게 언급해줘.\\n- excerpt는 워드프레스 발췌문(글 목록/공유 시 노출)으로 쓸 1~2문장짜리 짧고 흥미로운 요약을 작성해줘.\\n- meta_description은 본문에는 노출되지 않는 검색엔진용 요약(150자 내외)으로 따로 작성해줘. excerpt와는 톤이 달라도 돼.\\n- category는 정치/경제/사회/생활문화/IT과학/연예/스포츠/국제/기타 중 이 포스팅에 가장 맞는 하나로 골라줘.\\n- 절대 뉴스 기사를 단순히 요약만 하지 마. 이 사안이 왜 지금 화제인지에 대한 배경, 앞으로 어떻게 흘러갈지에 대한 전망, 비슷한 과거 사례와의 비교, 이게 독자에게 왜 중요한지 같은 너만의 관점과 분석을 최소 한두 문단 이상 담아줘. 기사 내용을 재배열한 것처럼 읽히면 안 되고, 읽고 나서 뭔가 새로운 통찰을 얻었다는 느낌이 들어야 해.`; const comment = $('Evaluate News Review').first().json.comment; return comment ? base + `\\n\\n[검토자 코멘트]\\n${comment}\\n위 코멘트 내용을 최대한 반영해서 작성해줘.` : base; })() }] }) }}",
+        "jsonBody": "={{ JSON.stringify({ model: \"claude-sonnet-5\", max_tokens: 4096, tools: [{ name: \"blog_draft\", description: \"워드프레스에 바로 등록 가능한 블로그 초안 생성\", input_schema: { type: \"object\", properties: { title: { type: \"string\" }, body_html: { type: \"string\" }, excerpt: { type: \"string\" }, tags: { type: \"array\", items: { type: \"string\" } }, category: { type: \"string\", enum: [\"정치\", \"경제\", \"사회\", \"생활/문화\", \"IT/과학\", \"연예\", \"스포츠\", \"국제\", \"기타\"] }, meta_description: { type: \"string\" }, image_keywords: { type: \"string\" } }, required: [\"title\", \"body_html\", \"excerpt\", \"tags\", \"category\", \"meta_description\", \"image_keywords\"] } }], tool_choice: { type: \"tool\", name: \"blog_draft\" }, messages: [{ role: \"user\", content: (() => { const base = `지금 화제인 키워드: ${$('Build News Summary').first().json.keyword}\\n\\n관련 뉴스:\\n${$('Build News Summary').first().json.news_list}\\n\\nGoogle Trends 원본 링크: ${$('Build News Summary').first().json.trend_link}\\n\\n위 내용을 참고해서 이 키워드를 자연스럽게 다루는 한국어 블로그 글을 작성해줘.\\n\\n작성 지침:\\n- 도입부는 '~가 화제인 이유는', '~에 대해 알아보겠습니다' 같은 상투적이고 AI스러운 문장으로 시작하지 마. 매번 다른 각도로 -- 최근 반응, 지금 분위기, 사람들이 주목하는 포인트 등 -- 자연스럽게 짚으면서 이 키워드로 시작해줘. 매 포스팅마다 도입부 스타일을 다르게 해줘.\\n- body_html 끝부분은 부가 설명이 아니라 글의 흐름을 자연스럽게 마무리하는 문단으로 끝내고, 참고한 뉴스 출처 링크를 그 안에 자연스럽게 언급해줘.\\n- excerpt는 워드프레스 발췌문(글 목록/공유 시 노출)으로 쓸 1~2문장짜리 짧고 흥미로운 요약을 작성해줘.\\n- meta_description은 본문에는 노출되지 않는 검색엔진용 요약(150자 내외)으로 따로 작성해줘. excerpt와는 톤이 달라도 돼.\\n- category는 정치/경제/사회/생활문화/IT과학/연예/스포츠/국제/기타 중 이 포스팅에 가장 맞는 하나로 골라줘.\\n- image_keywords는 이 글의 대표 이미지를 무료 스톡 사진 사이트(Pexels)에서 검색할 때 쓸 2~4개의 영어 단어야. 이 포스팅의 핵심 소재/키워드와 시각적으로 실제 연관된 장면을 표현해줘 (카테고리 수준의 뭉뚱그린 단어 말고, 이 기사가 다루는 대상·장소·상황을 구체적으로). 단, Pexels는 실존 인물 이름이나 한국 고유명사로는 검색이 안 되니, 그런 경우 그 인물/사안이 속한 상황을 묘사하는 일반적인 영어 단어로 바꿔서 표현해줘 (예: '손흥민 부상' -> 'soccer player injury field', '비트코인 급등' -> 'cryptocurrency finance chart growth', 'OO아파트 붕괴' -> 'apartment building collapse construction').\\n- 절대 뉴스 기사를 단순히 요약만 하지 마. 이 사안이 왜 지금 화제인지에 대한 배경, 앞으로 어떻게 흘러갈지에 대한 전망, 비슷한 과거 사례와의 비교, 이게 독자에게 왜 중요한지 같은 너만의 관점과 분석을 최소 한두 문단 이상 담아줘. 기사 내용을 재배열한 것처럼 읽히면 안 되고, 읽고 나서 뭔가 새로운 통찰을 얻었다는 느낌이 들어야 해.`; const comment = $('Evaluate News Review').first().json.comment; return comment ? base + `\\n\\n[검토자 코멘트]\\n${comment}\\n위 코멘트 내용을 최대한 반영해서 작성해줘.` : base; })() }] }) }}",
         "options": {}
       },
-      "id": "4c071099-bd51-4589-97af-82a368afc47b",
+      "id": "8fd2a2e7-df10-4ea6-9cb2-400dd4474e5f",
       "name": "Claude Draft",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-5600, 864],
-      "credentials": { "httpHeaderAuth": { "id": "ObdREGsNtNeEa527", "name": "Header Auth account" } },
+      "position": [
+        -9392,
+        -208
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ObdREGsNtNeEa527",
+          "name": "Header Auth account"
+        }
+      },
       "notes": "References 'Build News Summary' by name (not $json) because $json here is the Wait node's resumed payload, not the news summary."
     },
     {
       "parameters": {
         "jsCode": "const response = $input.first().json;\nconst toolUse = (response.content || []).find(c => c.type === 'tool_use');\nif (!toolUse) {\n  throw new Error('Claude 응답에 tool_use가 없습니다: ' + JSON.stringify(response));\n}\nreturn [{ json: toolUse.input }];"
       },
-      "id": "a6c103c0-e030-466b-8083-9a3ed9f84078",
+      "id": "9143406a-7f39-4f63-be72-81737039e37d",
       "name": "Parse Claude Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-5376, 864]
+      "position": [
+        -9168,
+        -208
+      ]
     },
     {
       "parameters": {
-        "jsCode": "const category = $input.first().json.category;\nconst map = {\n  '정치': 'politics government',\n  '경제': 'finance business economy',\n  '사회': 'society community',\n  '생활/문화': 'lifestyle culture',\n  'IT/과학': 'technology science',\n  '연예': 'entertainment stage lights',\n  '스포츠': 'sports stadium',\n  '국제': 'world global international',\n  '기타': 'news background'\n};\nreturn [{ json: { query: map[category] || 'news background' } }];"
-      },
-      "id": "b0000002-0001-4a11-9201-000000000001",
-      "name": "Map Category to Image Query",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [-5376, 1500],
-      "notes": "Pexels has almost no coverage for Korean proper-noun keywords (politician names, drama titles, etc.), so the actual trend keyword is never searched directly -- only a generic English query derived from Claude's category, giving a decorative but reliably non-empty result."
-    },
-    {
-      "parameters": {
-        "url": "=https://api.pexels.com/v1/search?query={{ encodeURIComponent($json.query) }}&per_page=1&orientation=landscape",
+        "url": "=https://api.pexels.com/v1/search?query={{ encodeURIComponent($json.image_keywords || 'news background') }}&per_page=1&orientation=landscape",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "Authorization", "value": "REPLACE_WITH_YOUR_PEXELS_API_KEY" }
+            {
+              "name": "Authorization",
+              "value": "REPLACE_WITH_YOUR_PEXELS_API_KEY"
+            }
           ]
         },
         "options": {}
       },
-      "id": "b0000002-0002-4a11-9201-000000000002",
+      "id": "b0000003-0001-4a11-9301-000000000001",
       "name": "Search Pexels Image",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-5152, 1500],
+      "position": [
+        -8944,
+        128
+      ],
       "alwaysOutputData": true,
-      "notes": "VERIFY IN UI: get a free API key at https://www.pexels.com/api/ and paste it into the Authorization header (raw key, no 'Bearer' prefix). alwaysOutputData=true so a zero-result search doesn't skip the rest of the publish chain."
+      "notes": "VERIFY IN UI: get a free API key at https://www.pexels.com/api/ and paste it into the Authorization header (raw key, no 'Bearer' prefix). Query comes directly from Claude's image_keywords (content-relevant, not just category) -- see Claude Draft's prompt. alwaysOutputData=true so a zero-result search doesn't skip the rest of the publish chain."
     },
     {
       "parameters": {
         "jsCode": "const response = $input.first().json;\nconst photo = (response.photos || [])[0];\nif (!photo) {\n  return [{ json: { found: false } }];\n}\nreturn [{\n  json: {\n    found: true,\n    imageUrl: photo.src.large2x || photo.src.original,\n    photographer: photo.photographer,\n    photographerUrl: photo.photographer_url\n  }\n}];"
       },
-      "id": "b0000002-0003-4a11-9201-000000000003",
+      "id": "b0000003-0002-4a11-9301-000000000002",
       "name": "Select Pexels Photo",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-4928, 1500]
+      "position": [
+        -8720,
+        128
+      ]
     },
     {
       "parameters": {
@@ -660,11 +1051,14 @@
         },
         "options": {}
       },
-      "id": "b0000002-0004-4a11-9201-000000000004",
+      "id": "b0000003-0003-4a11-9301-000000000003",
       "name": "IF Image Found",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [-4704, 1500],
+      "position": [
+        -8496,
+        128
+      ],
       "notes": "false branch (no Pexels result) skips straight to Finalize Featured Media with featured_media left at 0 -- a missing image must never block publishing the post itself."
     },
     {
@@ -672,11 +1066,14 @@
         "url": "={{ $json.imageUrl }}",
         "options": { "response": { "response": { "responseFormat": "file" } } }
       },
-      "id": "b0000002-0005-4a11-9201-000000000005",
+      "id": "b0000003-0004-4a11-9301-000000000004",
       "name": "Download Pexels Image",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-4480, 1420]
+      "position": [
+        -8272,
+        48
+      ]
     },
     {
       "parameters": {
@@ -697,11 +1094,14 @@
         "inputDataFieldName": "data",
         "options": {}
       },
-      "id": "b0000002-0006-4a11-9201-000000000006",
+      "id": "b0000003-0005-4a11-9301-000000000005",
       "name": "Upload Image to WordPress",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-4256, 1420],
+      "position": [
+        -8048,
+        48
+      ],
       "credentials": { "httpBasicAuth": { "id": "1ZP4HbtbBkA6d5Z4", "name": "Gabia" } },
       "notes": "VERIFY IN UI: reconnect the 'Gabia' Basic Auth credential like the other WordPress nodes. Uploads the downloaded binary directly to the media library; response's 'id' becomes the post's featured_media."
     },
@@ -709,11 +1109,14 @@
       "parameters": {
         "jsCode": "// Reached from either IF Image Found's true branch (Upload Image to WordPress's\n// response, which has an 'id') or its false branch (the {found:false} passthrough,\n// which has no 'id') -- either way, exactly one item arrives here.\nconst item = $input.first().json;\nreturn [{ json: { featured_media: item.id || 0 } }];"
       },
-      "id": "b0000002-0007-4a11-9201-000000000007",
+      "id": "b0000003-0006-4a11-9301-000000000006",
       "name": "Finalize Featured Media",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-4032, 1500]
+      "position": [
+        -7824,
+        128
+      ]
     },
     {
       "parameters": {
@@ -721,44 +1124,77 @@
         "authentication": "genericCredentialType",
         "genericAuthType": "httpBasicAuth",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [ { "name": "User-Agent", "value": "curl/8.21.0" } ] },
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "curl/8.21.0"
+            }
+          ]
+        },
         "options": {}
       },
-      "id": "dd952526-b1ad-4cac-a514-f835e06642d0",
+      "id": "a34ae60e-475e-404f-9b25-81f676fa1c68",
       "name": "Search WP Category",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-5152, 864],
+      "position": [
+        -7600,
+        -208
+      ],
       "alwaysOutputData": true,
-      "credentials": { "httpBasicAuth": { "id": "1ZP4HbtbBkA6d5Z4", "name": "Gabia" } },
-      "notes": "VERIFY IN UI: reconnect the 'Gabia' Basic Auth credential (Application Password) -- this and the 4 other new WordPress HTTP nodes all need it reselected after import. The User-Agent header is the confirmed fix for the 401 that blocked auto-publishing -- do not remove it from any of these 5 nodes. alwaysOutputData=true (Settings tab) is required: an empty search result ([]) would otherwise make n8n skip every downstream node entirely."
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "1ZP4HbtbBkA6d5Z4",
+          "name": "Gabia"
+        }
+      },
+      "notes": "VERIFY IN UI: reconnect the 'Gabia' Basic Auth credential (Application Password) -- this and the other new WordPress HTTP nodes all need it reselected after import. The User-Agent header is the confirmed fix for the 401 that blocked auto-publishing -- do not remove it. alwaysOutputData=true (Settings tab) is required: an empty search result ([]) would otherwise make n8n skip every downstream node entirely."
     },
     {
       "parameters": {
         "jsCode": "const response = $input.all().map(i => i.json);\nconst targetName = $('Parse Claude Response').first().json.category;\nconst match = response.find(c => c.name === targetName);\nreturn [{ json: { found: !!match, id: match ? match.id : null, name: targetName } }];"
       },
-      "id": "5699f127-c859-41b4-b805-02b0c57c103f",
+      "id": "59b3e9f5-f01b-4374-8168-3a946e971986",
       "name": "Normalize Category Search",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-4928, 864]
+      "position": [
+        -7376,
+        -208
+      ]
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 1 },
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
           "conditions": [
-            { "leftValue": "={{ $json.found ? 'true' : 'false' }}", "rightValue": "true", "operator": { "type": "string", "operation": "equals" } }
+            {
+              "leftValue": "={{ $json.found ? 'true' : 'false' }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
           ],
           "combinator": "and"
         },
         "options": {}
       },
-      "id": "db53abb3-020f-4f78-bf5a-889c4e02bfec",
+      "id": "8c122c30-913e-4111-9d2e-490e8c729f8e",
       "name": "IF Category Found",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [-4704, 864]
+      "position": [
+        -7152,
+        -208
+      ]
     },
     {
       "parameters": {
@@ -767,18 +1203,33 @@
         "authentication": "genericCredentialType",
         "genericAuthType": "httpBasicAuth",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [ { "name": "User-Agent", "value": "curl/8.21.0" } ] },
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "curl/8.21.0"
+            }
+          ]
+        },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ name: $('Normalize Category Search').first().json.name }) }}",
         "options": {}
       },
-      "id": "29e87755-6720-4e37-a8bd-30b7d74ccad2",
+      "id": "e7c12276-87ea-442c-80a2-9da21731f547",
       "name": "Create WP Category",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-4480, 944],
-      "credentials": { "httpBasicAuth": { "id": "1ZP4HbtbBkA6d5Z4", "name": "Gabia" } },
+      "position": [
+        -6928,
+        -128
+      ],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "1ZP4HbtbBkA6d5Z4",
+          "name": "Gabia"
+        }
+      },
       "notes": "Only runs when Search WP Category found no exact match. Creates the category once; future runs with the same category name will find it via search instead."
     },
     {
@@ -787,44 +1238,77 @@
         "authentication": "genericCredentialType",
         "genericAuthType": "httpBasicAuth",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [ { "name": "User-Agent", "value": "curl/8.21.0" } ] },
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "curl/8.21.0"
+            }
+          ]
+        },
         "options": {}
       },
-      "id": "37f8829b-30bf-410b-9086-85afd4dba1d3",
+      "id": "65e94f13-0e1b-44d8-86da-22a8339e9c10",
       "name": "Get All WP Tags",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-4256, 864],
+      "position": [
+        -6704,
+        -208
+      ],
       "alwaysOutputData": true,
-      "credentials": { "httpBasicAuth": { "id": "1ZP4HbtbBkA6d5Z4", "name": "Gabia" } },
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "1ZP4HbtbBkA6d5Z4",
+          "name": "Gabia"
+        }
+      },
       "notes": "Fetches all existing tags once (up to 100) -- matching against Claude's tags array happens in the next Code node, same fetch-all-then-filter pattern used elsewhere in this workflow. Both the 'found' (true) and 'not found' (false) branches of IF Category Found lead here. alwaysOutputData=true (Settings tab) required on a fresh site with zero tags."
     },
     {
       "parameters": {
         "jsCode": "const claudeTags = $('Parse Claude Response').first().json.tags || [];\nconst existingTags = $input.all().map(i => i.json);\nconst existingByName = new Map(existingTags.map(t => [String(t.name).toLowerCase(), t.id]));\nconst resolvedIds = [];\nconst missingNames = [];\nfor (const name of claudeTags) {\n  const id = existingByName.get(String(name).toLowerCase());\n  if (id) resolvedIds.push(id);\n  else missingNames.push(name);\n}\nif (missingNames.length === 0) {\n  return [{ json: { needsCreate: false, resolvedIds } }];\n}\nreturn missingNames.map(name => ({ json: { needsCreate: true, name, resolvedIds } }));"
       },
-      "id": "c1bcb1cf-5520-4366-9295-4a2d15056daf",
+      "id": "5782c8a9-f589-4839-9c3c-81a60033fc03",
       "name": "Resolve Tag IDs",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-4032, 864]
+      "position": [
+        -6480,
+        -208
+      ]
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 1 },
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
           "conditions": [
-            { "leftValue": "={{ $json.needsCreate ? 'true' : 'false' }}", "rightValue": "true", "operator": { "type": "string", "operation": "equals" } }
+            {
+              "leftValue": "={{ $json.needsCreate ? 'true' : 'false' }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
           ],
           "combinator": "and"
         },
         "options": {}
       },
-      "id": "e3e09b75-18db-48ba-a2cf-b688a4504f8b",
+      "id": "d5d075eb-2073-45db-8dc5-5368e7aa4d22",
       "name": "IF Tag Needs Create",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [-3808, 864]
+      "position": [
+        -6256,
+        -208
+      ]
     },
     {
       "parameters": {
@@ -833,41 +1317,68 @@
         "authentication": "genericCredentialType",
         "genericAuthType": "httpBasicAuth",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [ { "name": "User-Agent", "value": "curl/8.21.0" } ] },
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "curl/8.21.0"
+            }
+          ]
+        },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ name: $json.name }) }}",
         "options": {}
       },
-      "id": "31b51874-c017-4987-a7d7-f47c526cafd0",
+      "id": "66fc6663-a205-4815-b77c-e6675b9ff21b",
       "name": "Create WP Tag",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-3584, 800],
-      "credentials": { "httpBasicAuth": { "id": "1ZP4HbtbBkA6d5Z4", "name": "Gabia" } },
+      "position": [
+        -6032,
+        -272
+      ],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "1ZP4HbtbBkA6d5Z4",
+          "name": "Gabia"
+        }
+      },
       "notes": "Runs once per missing tag (one item per tag from Resolve Tag IDs), creating each new tag in WordPress."
     },
     {
       "parameters": {
-        "fieldsToAggregate": { "fieldToAggregate": [ { "fieldToAggregate": "id" } ] },
+        "fieldsToAggregate": {
+          "fieldToAggregate": [
+            {
+              "fieldToAggregate": "id"
+            }
+          ]
+        },
         "options": {}
       },
-      "id": "d095e045-12da-4080-94fc-7e5a7a9a1ed8",
+      "id": "01b79a18-0e22-4c03-aa5d-cbb4a5550c96",
       "name": "Aggregate Tag IDs",
       "type": "n8n-nodes-base.aggregate",
       "typeVersion": 1,
-      "position": [-3360, 864],
+      "position": [
+        -5808,
+        -208
+      ],
       "notes": "Collapses however many items arrived (0 from the false branch's single passthrough item with no id, or N created-tag items from the true branch) into exactly one downstream execution -- avoids Publish WordPress firing multiple times."
     },
     {
       "parameters": {
         "jsCode": "const createdIds = ($input.first().json.id || []);\nconst resolvedIds = $('Resolve Tag IDs').first().json.resolvedIds || [];\nreturn [{ json: { tag_ids: [...resolvedIds, ...createdIds] } }];"
       },
-      "id": "45033720-08fd-4acc-8e4c-7bcd183abfd8",
+      "id": "9ac27936-1a06-4ca2-b252-3bdb05395095",
       "name": "Finalize Tag IDs",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-3136, 864]
+      "position": [
+        -5584,
+        -208
+      ]
     },
     {
       "parameters": {
@@ -876,19 +1387,34 @@
         "authentication": "genericCredentialType",
         "genericAuthType": "httpBasicAuth",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [ { "name": "User-Agent", "value": "curl/8.21.0" } ] },
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "curl/8.21.0"
+            }
+          ]
+        },
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ title: $('Parse Claude Response').first().json.title, content: $('Parse Claude Response').first().json.body_html, excerpt: $('Parse Claude Response').first().json.excerpt, status: \"draft\", categories: [(() => { const norm = $('Normalize Category Search').first().json; if (norm.found) return norm.id; try { return $('Create WP Category').first().json.id; } catch (e) { return null; } })()], tags: $('Finalize Tag IDs').first().json.tag_ids, featured_media: $('Finalize Featured Media').first().json.featured_media }) }}",
         "options": {}
       },
-      "id": "a1138de5-cde5-4012-bb14-e5dc821483a9",
+      "id": "2339ad60-e83d-419f-92fa-61aaac56b0c8",
       "name": "Publish WordPress",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-2912, 864],
-      "credentials": { "httpBasicAuth": { "id": "1ZP4HbtbBkA6d5Z4", "name": "Gabia" } },
-      "notes": "The User-Agent: curl/8.21.0 header is the confirmed fix for the 401 rest_cannot_create error that blocked this for weeks -- do not remove it. Publishes as status=draft so a featured image and final polish can be added in wp-admin before actually going live."
+      "position": [
+        -5360,
+        -208
+      ],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "1ZP4HbtbBkA6d5Z4",
+          "name": "Gabia"
+        }
+      },
+      "notes": "The User-Agent: curl/8.21.0 header is the confirmed fix for the 401 rest_cannot_create error that blocked this for weeks -- do not remove it. Publishes as status=draft so final polish can be added in wp-admin before actually going live. featured_media comes from the Pexels chain above (0 if no image was found)."
     },
     {
       "parameters": {
@@ -896,22 +1422,40 @@
         "tableId": "trending_keywords",
         "filters": {
           "conditions": [
-            { "keyName": "id", "condition": "eq", "keyValue": "={{ $('Keyword Context').first().json.id }}" }
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Keyword Context').first().json.id }}"
+            }
           ]
         },
         "fieldsUi": {
           "fieldValues": [
-            { "fieldId": "posted_at", "fieldValue": "={{ $now.toISO() }}" },
-            { "fieldId": "wp_post_id", "fieldValue": "={{ $('Publish WordPress').first().json.id }}" }
+            {
+              "fieldId": "posted_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            },
+            {
+              "fieldId": "wp_post_id",
+              "fieldValue": "={{ $('Publish WordPress').first().json.id }}"
+            }
           ]
         }
       },
-      "id": "70380181-5450-43df-808d-512746a417c5",
+      "id": "ea4a5bc0-f388-44ff-9faa-5cb7b1d985b3",
       "name": "Mark Handled",
       "type": "n8n-nodes-base.supabase",
       "typeVersion": 1,
-      "position": [-2688, 864],
-      "credentials": { "supabaseApi": { "id": "APCjwvwaP8MxdSLA", "name": "Supabase account 2" } },
+      "position": [
+        -5136,
+        -208
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "APCjwvwaP8MxdSLA",
+          "name": "Supabase account 2"
+        }
+      },
       "onError": "continueErrorOutput",
       "notes": "Now records the real wp_post_id from Publish WordPress, restoring the column's original purpose from before the email fallback."
     },
@@ -923,11 +1467,19 @@
       },
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [-2464, 768],
-      "id": "048057ec-4130-48e7-8e50-224c0800685b",
+      "position": [
+        -4912,
+        -304
+      ],
+      "id": "a75cec52-4b94-4300-844c-f13cd28a2a9e",
       "name": "Send a text message",
       "webhookId": "22ccf5a3-96c8-4c5c-b3f2-a98f951fc0ec",
-      "credentials": { "telegramApi": { "id": "7oxTl9ZzFfqBvEU2", "name": "Telegram Bot" } }
+      "credentials": {
+        "telegramApi": {
+          "id": "7oxTl9ZzFfqBvEU2",
+          "name": "Telegram Bot"
+        }
+      }
     },
     {
       "parameters": {
@@ -937,126 +1489,723 @@
       },
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [-2464, 960],
-      "id": "580064e8-4d3c-45af-87ea-78fd8a12e1be",
+      "position": [
+        -4912,
+        -112
+      ],
+      "id": "c6f43bdf-4d3e-473e-8364-d32c404c4011",
       "name": "Send a text message1",
       "webhookId": "4bb332b6-d8a2-4e37-93d5-9519fc0335d9",
-      "credentials": { "telegramApi": { "id": "7oxTl9ZzFfqBvEU2", "name": "Telegram Bot" } }
+      "credentials": {
+        "telegramApi": {
+          "id": "7oxTl9ZzFfqBvEU2",
+          "name": "Telegram Bot"
+        }
+      }
     }
   ],
   "pinData": {},
   "connections": {
-    "Schedule Trigger": { "main": [[{ "node": "Fetch Trends RSS", "type": "main", "index": 0 }]] },
-    "Fetch Trends RSS": { "main": [[{ "node": "XML to JSON", "type": "main", "index": 0 }]] },
-    "XML to JSON": { "main": [[{ "node": "Extract Top 20", "type": "main", "index": 0 }]] },
-    "Extract Top 20": { "main": [[{ "node": "Insert Keywords History", "type": "main", "index": 0 }]] },
-    "Insert Keywords History": { "main": [[{ "node": "Get Recently Posted", "type": "main", "index": 0 }]] },
-    "Get Recently Posted": { "main": [[{ "node": "Pick Next Keyword", "type": "main", "index": 0 }]] },
-    "Pick Next Keyword": { "main": [[{ "node": "IF New Keyword Found", "type": "main", "index": 0 }]] },
-    "IF New Keyword Found": {
+    "Schedule Trigger": {
       "main": [
-        [{ "node": "Keyword Approval Attempt", "type": "main", "index": 0 }],
-        [{ "node": "Telegram: No New Keyword", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Fetch Trends RSS",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
-    "Keyword Approval Attempt": { "main": [[{ "node": "Send Telegram Keyword Approval", "type": "main", "index": 0 }]] },
-    "Send Telegram Keyword Approval": { "main": [[{ "node": "Wait Keyword Approval", "type": "main", "index": 0 }]] },
-    "Wait Keyword Approval": { "main": [[{ "node": "Evaluate Keyword Approval", "type": "main", "index": 0 }]] },
-    "Evaluate Keyword Approval": { "main": [[{ "node": "IF Approval Proceed", "type": "main", "index": 0 }]] },
+    "Fetch Trends RSS": {
+      "main": [
+        [
+          {
+            "node": "XML to JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "XML to JSON": {
+      "main": [
+        [
+          {
+            "node": "Extract Top 20",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Top 20": {
+      "main": [
+        [
+          {
+            "node": "Insert Keywords History",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Keywords History": {
+      "main": [
+        [
+          {
+            "node": "Get Recently Posted",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Recently Posted": {
+      "main": [
+        [
+          {
+            "node": "Pick Next Keyword",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick Next Keyword": {
+      "main": [
+        [
+          {
+            "node": "IF New Keyword Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF New Keyword Found": {
+      "main": [
+        [
+          {
+            "node": "Keyword Approval Attempt",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Telegram: No New Keyword",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Keyword Approval Attempt": {
+      "main": [
+        [
+          {
+            "node": "Send Telegram Keyword Approval",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Telegram Keyword Approval": {
+      "main": [
+        [
+          {
+            "node": "Wait Keyword Approval",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait Keyword Approval": {
+      "main": [
+        [
+          {
+            "node": "Evaluate Keyword Approval",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evaluate Keyword Approval": {
+      "main": [
+        [
+          {
+            "node": "IF Approval Proceed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "IF Approval Proceed": {
       "main": [
-        [{ "node": "Keyword Context", "type": "main", "index": 0 }],
-        [{ "node": "IF Approval Retry", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Keyword Context",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "IF Approval Retry",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "IF Approval Retry": {
       "main": [
-        [{ "node": "Keyword Approval Attempt", "type": "main", "index": 0 }],
-        [{ "node": "Telegram: Keyword Rejected", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Keyword Approval Attempt",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Telegram: Keyword Rejected",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Telegram Trigger (Manual Keyword)": {
-      "main": [[
-        { "node": "Parse Manual Keyword", "type": "main", "index": 0 },
-        { "node": "Parse Approval Comment", "type": "main", "index": 0 }
-      ]]
-    },
-    "Parse Manual Keyword": { "main": [[{ "node": "Insert Manual Keyword", "type": "main", "index": 0 }]] },
-    "Insert Manual Keyword": { "main": [[{ "node": "Keyword Context", "type": "main", "index": 0 }]] },
-    "Parse Approval Comment": { "main": [[{ "node": "Get Rows For Approval Lookup", "type": "main", "index": 0 }]] },
-    "Get Rows For Approval Lookup": { "main": [[{ "node": "Find Pending Resume URL", "type": "main", "index": 0 }]] },
-    "Find Pending Resume URL": { "main": [[{ "node": "Resolve Pending Approval", "type": "main", "index": 0 }]] },
-    "Resolve Pending Approval": { "main": [[{ "node": "Clear Pending Resume URL", "type": "main", "index": 0 }]] },
-    "Clear Pending Resume URL": { "main": [[{ "node": "Telegram: Comment Approval Ack", "type": "main", "index": 0 }]] },
-    "Keyword Context": { "main": [[{ "node": "Search Naver News", "type": "main", "index": 0 }]] },
-    "Search Naver News": { "main": [[{ "node": "Parse & Split Articles", "type": "main", "index": 0 }]] },
-    "Parse & Split Articles": { "main": [[{ "node": "IF News Found", "type": "main", "index": 0 }]] },
-    "IF News Found": {
       "main": [
-        [{ "node": "Split Out Articles", "type": "main", "index": 0 }],
-        [{ "node": "Telegram: No Recent News", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Parse Manual Keyword",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Parse Approval Comment",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
-    "Split Out Articles": { "main": [[{ "node": "Insert News", "type": "main", "index": 0 }]] },
-    "Insert News": { "main": [[{ "node": "Aggregate News", "type": "main", "index": 0 }]] },
-    "Aggregate News": { "main": [[{ "node": "Build News Summary", "type": "main", "index": 0 }]] },
-    "Build News Summary": { "main": [[{ "node": "News Review Attempt", "type": "main", "index": 0 }]] },
-    "News Review Attempt": { "main": [[{ "node": "Send Telegram News Review", "type": "main", "index": 0 }]] },
-    "Send Telegram News Review": { "main": [[{ "node": "Store Pending Resume URL", "type": "main", "index": 0 }]] },
-    "Store Pending Resume URL": { "main": [[{ "node": "Wait News Review", "type": "main", "index": 0 }]] },
-    "Wait News Review": { "main": [[{ "node": "Evaluate News Review", "type": "main", "index": 0 }]] },
-    "Evaluate News Review": { "main": [[{ "node": "IF News Proceed", "type": "main", "index": 0 }]] },
+    "Parse Manual Keyword": {
+      "main": [
+        [
+          {
+            "node": "Insert Manual Keyword",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Manual Keyword": {
+      "main": [
+        [
+          {
+            "node": "Keyword Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Approval Comment": {
+      "main": [
+        [
+          {
+            "node": "Get Rows For Approval Lookup",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Rows For Approval Lookup": {
+      "main": [
+        [
+          {
+            "node": "Find Pending Resume URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Pending Resume URL": {
+      "main": [
+        [
+          {
+            "node": "Resolve Pending Approval",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve Pending Approval": {
+      "main": [
+        [
+          {
+            "node": "Clear Pending Resume URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear Pending Resume URL": {
+      "main": [
+        [
+          {
+            "node": "Telegram: Comment Approval Ack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Keyword Context": {
+      "main": [
+        [
+          {
+            "node": "Search Naver News",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Naver News": {
+      "main": [
+        [
+          {
+            "node": "Parse & Split Articles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse & Split Articles": {
+      "main": [
+        [
+          {
+            "node": "IF News Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF News Found": {
+      "main": [
+        [
+          {
+            "node": "Split Out Articles",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Telegram: No Recent News",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out Articles": {
+      "main": [
+        [
+          {
+            "node": "Insert News",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert News": {
+      "main": [
+        [
+          {
+            "node": "Aggregate News",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate News": {
+      "main": [
+        [
+          {
+            "node": "Build News Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build News Summary": {
+      "main": [
+        [
+          {
+            "node": "News Review Attempt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "News Review Attempt": {
+      "main": [
+        [
+          {
+            "node": "Send Telegram News Review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Telegram News Review": {
+      "main": [
+        [
+          {
+            "node": "Store Pending Resume URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Pending Resume URL": {
+      "main": [
+        [
+          {
+            "node": "Wait News Review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait News Review": {
+      "main": [
+        [
+          {
+            "node": "Evaluate News Review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evaluate News Review": {
+      "main": [
+        [
+          {
+            "node": "IF News Proceed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "IF News Proceed": {
       "main": [
-        [{ "node": "Claude Draft", "type": "main", "index": 0 }],
-        [{ "node": "IF News Retry", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Claude Draft",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "IF News Retry",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "IF News Retry": {
       "main": [
-        [{ "node": "News Review Attempt", "type": "main", "index": 0 }],
-        [{ "node": "Telegram: News Review Rejected", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "News Review Attempt",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Telegram: News Review Rejected",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
-    "Claude Draft": { "main": [[{ "node": "Parse Claude Response", "type": "main", "index": 0 }]] },
-    "Parse Claude Response": { "main": [[{ "node": "Map Category to Image Query", "type": "main", "index": 0 }]] },
-    "Map Category to Image Query": { "main": [[{ "node": "Search Pexels Image", "type": "main", "index": 0 }]] },
-    "Search Pexels Image": { "main": [[{ "node": "Select Pexels Photo", "type": "main", "index": 0 }]] },
-    "Select Pexels Photo": { "main": [[{ "node": "IF Image Found", "type": "main", "index": 0 }]] },
+    "Claude Draft": {
+      "main": [
+        [
+          {
+            "node": "Parse Claude Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Claude Response": {
+      "main": [
+        [
+          {
+            "node": "Search Pexels Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Pexels Image": {
+      "main": [
+        [
+          {
+            "node": "Select Pexels Photo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Select Pexels Photo": {
+      "main": [
+        [
+          {
+            "node": "IF Image Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "IF Image Found": {
       "main": [
-        [{ "node": "Download Pexels Image", "type": "main", "index": 0 }],
-        [{ "node": "Finalize Featured Media", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Download Pexels Image",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Finalize Featured Media",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
-    "Download Pexels Image": { "main": [[{ "node": "Upload Image to WordPress", "type": "main", "index": 0 }]] },
-    "Upload Image to WordPress": { "main": [[{ "node": "Finalize Featured Media", "type": "main", "index": 0 }]] },
-    "Finalize Featured Media": { "main": [[{ "node": "Search WP Category", "type": "main", "index": 0 }]] },
-    "Search WP Category": { "main": [[{ "node": "Normalize Category Search", "type": "main", "index": 0 }]] },
-    "Normalize Category Search": { "main": [[{ "node": "IF Category Found", "type": "main", "index": 0 }]] },
+    "Download Pexels Image": {
+      "main": [
+        [
+          {
+            "node": "Upload Image to WordPress",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload Image to WordPress": {
+      "main": [
+        [
+          {
+            "node": "Finalize Featured Media",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Finalize Featured Media": {
+      "main": [
+        [
+          {
+            "node": "Search WP Category",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search WP Category": {
+      "main": [
+        [
+          {
+            "node": "Normalize Category Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Category Search": {
+      "main": [
+        [
+          {
+            "node": "IF Category Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "IF Category Found": {
       "main": [
-        [{ "node": "Get All WP Tags", "type": "main", "index": 0 }],
-        [{ "node": "Create WP Category", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Get All WP Tags",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create WP Category",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
-    "Create WP Category": { "main": [[{ "node": "Get All WP Tags", "type": "main", "index": 0 }]] },
-    "Get All WP Tags": { "main": [[{ "node": "Resolve Tag IDs", "type": "main", "index": 0 }]] },
-    "Resolve Tag IDs": { "main": [[{ "node": "IF Tag Needs Create", "type": "main", "index": 0 }]] },
+    "Create WP Category": {
+      "main": [
+        [
+          {
+            "node": "Get All WP Tags",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get All WP Tags": {
+      "main": [
+        [
+          {
+            "node": "Resolve Tag IDs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve Tag IDs": {
+      "main": [
+        [
+          {
+            "node": "IF Tag Needs Create",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "IF Tag Needs Create": {
       "main": [
-        [{ "node": "Create WP Tag", "type": "main", "index": 0 }],
-        [{ "node": "Aggregate Tag IDs", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Create WP Tag",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Aggregate Tag IDs",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
-    "Create WP Tag": { "main": [[{ "node": "Aggregate Tag IDs", "type": "main", "index": 0 }]] },
-    "Aggregate Tag IDs": { "main": [[{ "node": "Finalize Tag IDs", "type": "main", "index": 0 }]] },
-    "Finalize Tag IDs": { "main": [[{ "node": "Publish WordPress", "type": "main", "index": 0 }]] },
-    "Publish WordPress": { "main": [[{ "node": "Mark Handled", "type": "main", "index": 0 }]] },
+    "Create WP Tag": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Tag IDs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Tag IDs": {
+      "main": [
+        [
+          {
+            "node": "Finalize Tag IDs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Finalize Tag IDs": {
+      "main": [
+        [
+          {
+            "node": "Publish WordPress",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Publish WordPress": {
+      "main": [
+        [
+          {
+            "node": "Mark Handled",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "Mark Handled": {
       "main": [
-        [{ "node": "Send a text message", "type": "main", "index": 0 }],
-        [{ "node": "Send a text message1", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send a text message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     }
   },
@@ -1068,7 +2217,7 @@
     "callerPolicy": "workflowsFromSameOwner",
     "availableInMCP": false
   },
-  "versionId": "0ff3aa2e-3a0d-4f59-826b-e14e4bb8e627",
+  "versionId": "a528f589-68da-475c-b55f-7de68f156a8d",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "e607bc1906e1c5525bc5210df2ad20ecf7ea2b1a204fadc7b470cf0474421bc2"

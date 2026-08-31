@@ -1,10 +1,10 @@
 # trends-to-wordpress.n8n.json (v2 — Telegram 승인 + 수동 키워드 + 반복 방지)
 
-## v2.6 — 대표 이미지 자동 첨부 (신규)
+## v2.6 — 대표 이미지 자동 첨부, 키워드 연관 검색 (신규)
 
 `Parse Claude Response`와 `Search WP Category` 사이에 Pexels 무료 스톡 사진 API를 이용한 대표 이미지 체인을 추가했습니다.
 
-- `Map Category to Image Query` — Claude가 고른 한글 카테고리(정치/경제/사회 등)를 영어 검색어로 변환합니다. 네이버 트렌드 키워드(인물명, 드라마 제목 등 한국 고유명사)로 직접 검색하면 Pexels에 결과가 거의 없어서, 카테고리 기반의 일반적인 영어 키워드로만 검색합니다 — 기사 내용과 정확히 일치하는 사진이 아니라 "분위기가 맞는" 장식용 이미지입니다.
+- **이미지 검색어는 카테고리가 아니라 Claude가 그 포스팅 내용을 보고 직접 생성한 `image_keywords`**(영어 2~4단어)입니다. `Claude Draft`의 도구 스키마와 프롬프트에 이 필드를 추가해서, 카테고리 수준의 뭉뚱그린 이미지가 아니라 실제 기사 소재/상황과 시각적으로 연관된 이미지가 나오도록 했습니다. 다만 Pexels는 실존 인물명이나 한국 고유명사로는 검색이 안 되므로, 그런 경우 Claude가 그 상황을 묘사하는 일반적인 영어 표현으로 바꿔서 생성하도록 프롬프트에 명시했습니다 (예: "손흥민 부상" → `soccer player injury field`).
 - `Search Pexels Image` → `Select Pexels Photo` → `IF Image Found` — 검색 결과가 없어도(`found: false`) 전체 발행 체인이 죽지 않고 대표 이미지 없이 계속 진행됩니다 (이 워크플로우 전체에 적용된 "빈 결과가 다운스트림을 막으면 안 된다" 원칙과 동일).
 - 이미지를 찾으면 `Download Pexels Image`(바이너리 다운로드) → `Upload Image to WordPress`(`/wp-json/wp/v2/media`에 업로드) → `Finalize Featured Media`가 업로드된 미디어 ID를, 못 찾으면 `0`을 반환합니다.
 - `Publish WordPress`의 요청 본문에 `featured_media` 필드가 추가되어, 초안이 대표 이미지가 지정된 상태로 등록됩니다.
