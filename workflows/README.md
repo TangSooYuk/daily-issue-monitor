@@ -1,5 +1,16 @@
 # trends-to-wordpress.n8n.json (v2 — Telegram 승인 + 수동 키워드 + 반복 방지)
 
+## v2.10 — 업로드 이미지 alt 텍스트 채우기 (신규)
+
+SEO 점검 중 발견: 대표 이미지 + 본문 이미지 2장 모두 실제 `<img alt="">`가 비어있었습니다 (Rank Math가 og:image:alt는 포커스 키워드 등으로 대체 채워주지만, 실제 본문/썸네일 `<img>` 태그의 alt는 미디어 라이브러리 첨부파일 자체의 alt_text 메타데이터가 없으면 비게 됩니다). 이미지 검색 노출과 접근성(스크린리더) 둘 다 놓치고 있던 부분입니다.
+
+- **원인**: `Upload Featured Image to WordPress` / `Upload Body Image 1` / `Upload Body Image 2`가 `/wp-json/wp/v2/media`에 파일 바이트만 raw binary body로 올리고 있어서, 같은 요청에 `alt_text` 같은 텍스트 필드를 같이 못 보냅니다 (binaryData contentType은 순수 바이너리 바디만 가능).
+- **수정**: 각 업로드 노드 직후에 병렬 리프 노드(`Set Featured Image Alt Text` / `Set Body Image 1 Alt Text` / `Set Body Image 2 Alt Text`)를 추가했습니다. 업로드된 미디어 id로 `POST /wp/v2/media/{id}`를 한 번 더 호출해서 `alt_text`를 채웁니다. 값은 Claude가 생성한 포스트 제목(`title`)을 그대로 씁니다 — 이미지별 개별 캡션까지는 아직 생성하지 않아서, 제목을 재사용하는 게 가장 안전하고 간단한 선택입니다.
+- 기존 발행 체인(`Finalize Featured Media`, `Search Pexels Image B2`, `Insert Body Images`)은 그대로 유지되고, 이 세 노드는 곁가지로만 붙습니다 — alt 텍스트 설정이 실패해도(`onError: continueRegularOutput`) 발행 자체는 절대 막히지 않습니다.
+- 기존에 이미 발행된 글의 이미지는 소급 적용되지 않습니다 (새로 업로드되는 이미지부터 적용).
+
+**⚠️ Import 후 필수**: 새로 추가된 노드 3개(`Set Featured Image Alt Text`, `Set Body Image 1 Alt Text`, `Set Body Image 2 Alt Text`) 모두 "Gabia" Basic Auth 크리덴셜을 재선택해야 합니다.
+
 ## v2.9 — HTML 엔티티 디코딩 + 수동 `/post`의 id 유실 버그 수정 (신규)
 
 - **`Extract OG Image`**: 뉴스 사이트가 `og:image` 메타태그에 `&amp;` 같은 HTML 엔티티를 이스케이프해서 내려주는 경우가 있는데, 이걸 그대로 다운로드 URL로 쓰면 n8n이 쿼리스트링 파싱에 실패해 "Bad request"가 났습니다 (조선일보 기사에서 실제 재현). 추출 직후 엔티티를 디코딩하도록 고쳤습니다.

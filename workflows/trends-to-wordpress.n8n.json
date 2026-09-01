@@ -1193,6 +1193,33 @@
     },
     {
       "parameters": {
+        "method": "POST",
+        "url": "=https://deohaam.com/wp-json/wp/v2/media/{{ $json.id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [ { "name": "User-Agent", "value": "curl/8.21.0" } ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ alt_text: $('Parse Claude Response').first().json.title }) }}",
+        "options": {}
+      },
+      "id": "e1000001-0001-4a11-9e01-000000000001",
+      "name": "Set Featured Image Alt Text",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -8048,
+        250
+      ],
+      "credentials": { "httpBasicAuth": { "id": "1ZP4HbtbBkA6d5Z4", "name": "Gabia" } },
+      "onError": "continueRegularOutput",
+      "notes": "Side-effect-only leaf node (parallel to Finalize Featured Media, doesn't feed back into the main publish chain) that PATCHes the just-uploaded media item with alt_text so the front-end <img alt=\"...\"> isn't empty. Uses the post title as alt text since Claude doesn't generate a separate per-image caption. onError=continueRegularOutput so a failure here never blocks publishing."
+    },
+    {
+      "parameters": {
         "jsCode": "// Reached from either Upload Featured Image to WordPress's response (has an 'id')\n// or IF Image Found's false branch (the {found:false} passthrough, no 'id') --\n// either way, exactly one item arrives here.\nconst item = $input.first().json;\nreturn [{ json: { featured_media: item.id || 0 } }];"
       },
       "id": "b0000003-0006-4a11-9301-000000000006",
@@ -1304,6 +1331,33 @@
     },
     {
       "parameters": {
+        "method": "POST",
+        "url": "=https://deohaam.com/wp-json/wp/v2/media/{{ $json.id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [ { "name": "User-Agent", "value": "curl/8.21.0" } ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ alt_text: $('Parse Claude Response').first().json.title }) }}",
+        "options": {}
+      },
+      "id": "e1000001-0002-4a11-9e01-000000000002",
+      "name": "Set Body Image 1 Alt Text",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -6704,
+        440
+      ],
+      "credentials": { "httpBasicAuth": { "id": "1ZP4HbtbBkA6d5Z4", "name": "Gabia" } },
+      "onError": "continueRegularOutput",
+      "notes": "Side-effect-only leaf node (parallel to Search Pexels Image B2, doesn't feed back into the main publish chain) that PATCHes the just-uploaded media item with alt_text so the front-end <img alt=\"...\"> isn't empty. Uses the post title as alt text. onError=continueRegularOutput so a failure here never blocks publishing."
+    },
+    {
+      "parameters": {
         "url": "=https://api.pexels.com/v1/search?query={{ encodeURIComponent(($('Parse Claude Response').first().json.body_image_keywords || [])[1] || 'news background') }}&per_page=1&orientation=landscape",
         "sendHeaders": true,
         "headerParameters": {
@@ -1399,6 +1453,33 @@
       ],
       "credentials": { "httpBasicAuth": { "id": "1ZP4HbtbBkA6d5Z4", "name": "Gabia" } },
       "notes": "VERIFY IN UI: reconnect the 'Gabia' Basic Auth credential."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://deohaam.com/wp-json/wp/v2/media/{{ $json.id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [ { "name": "User-Agent", "value": "curl/8.21.0" } ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ alt_text: $('Parse Claude Response').first().json.title }) }}",
+        "options": {}
+      },
+      "id": "e1000001-0003-4a11-9e01-000000000003",
+      "name": "Set Body Image 2 Alt Text",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -5584,
+        440
+      ],
+      "credentials": { "httpBasicAuth": { "id": "1ZP4HbtbBkA6d5Z4", "name": "Gabia" } },
+      "onError": "continueRegularOutput",
+      "notes": "Side-effect-only leaf node (parallel to Insert Body Images, doesn't feed back into the main publish chain) that PATCHes the just-uploaded media item with alt_text so the front-end <img alt=\"...\"> isn't empty. Uses the post title as alt text. onError=continueRegularOutput so a failure here never blocks publishing."
     },
     {
       "parameters": {
@@ -2398,6 +2479,11 @@
             "node": "Finalize Featured Media",
             "type": "main",
             "index": 0
+          },
+          {
+            "node": "Set Featured Image Alt Text",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -2471,6 +2557,11 @@
             "node": "Search Pexels Image B2",
             "type": "main",
             "index": 0
+          },
+          {
+            "node": "Set Body Image 1 Alt Text",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -2531,6 +2622,11 @@
         [
           {
             "node": "Insert Body Images",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Set Body Image 2 Alt Text",
             "type": "main",
             "index": 0
           }
