@@ -422,6 +422,41 @@
     },
     {
       "parameters": {
+        "operation": "getAll",
+        "tableId": "trending_keywords",
+        "returnAll": true
+      },
+      "id": "b0000008-0001-4a11-9801-000000000001",
+      "name": "Get Manual Keyword Row",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -12608,
+        128
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "APCjwvwaP8MxdSLA",
+          "name": "Supabase account 2"
+        }
+      },
+      "notes": "Re-queries instead of trusting Insert Manual Keyword's own response for the new row's id -- same reasoning as the trend flow (Insert Keywords History -> Get Recently Posted): the Supabase node's create response doesn't reliably include the DB-generated id on every n8n version, and Keyword Context reading an undefined id caused 'invalid input syntax for type bigint: undefined' in Mark Handled."
+    },
+    {
+      "parameters": {
+        "jsCode": "const parsed = $('Parse Manual Keyword').first().json;\nconst rows = $input.all().map(i => i.json);\nconst dbRow = rows.find(r => r.keyword === parsed.keyword && r.trend_date === parsed.trend_date && r.region === 'KR');\nreturn [{ json: { id: dbRow ? dbRow.id : null, keyword: parsed.keyword, trend_link: parsed.trend_link } }];"
+      },
+      "id": "b0000008-0002-4a11-9801-000000000002",
+      "name": "Find Manual Keyword Row",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -12680,
+        128
+      ]
+    },
+    {
+      "parameters": {
         "jsCode": "const message = $input.first().json.message;\nconst text = (message && message.text) || '';\nconst match = text.match(/^(승인|거절)\\s*[:\\-]?\\s*([\\s\\S]*)$/);\nif (!match) {\n  return []; // not an approval-style reply -- ignore (e.g. /post commands, unrelated chat)\n}\nconst decision = match[1] === '승인' ? 'approve' : 'reject';\nconst comment = match[2].trim() || null;\nreturn [{ json: { decision, comment } }];"
       },
       "id": "7780502c-c9e3-40be-baff-5a0a220eb4d2",
@@ -547,7 +582,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Single convergence point for Flow A (approved trend, arrives after a Wait node -- so $json/$input\n// at this point would just be the Telegram resume payload, NOT the keyword data) and Flow B (manual\n// /post, arrives directly with no Wait in between). Reference the real source explicitly by name.\nlet source;\nlet flowSource;\ntry {\n  source = $('Pick Next Keyword').first().json;\n  flowSource = 'trend';\n} catch (e) {\n  source = $('Insert Manual Keyword').first().json;\n  flowSource = 'manual';\n}\nreturn [{\n  json: {\n    id: source.id,\n    keyword: source.keyword,\n    trend_link: source.trend_link || null,\n    source: flowSource\n  }\n}];"
+        "jsCode": "// Single convergence point for Flow A (approved trend, arrives after a Wait node -- so $json/$input\n// at this point would just be the Telegram resume payload, NOT the keyword data) and Flow B (manual\n// /post, arrives directly with no Wait in between). Reference the real source explicitly by name.\nlet source;\nlet flowSource;\ntry {\n  source = $('Pick Next Keyword').first().json;\n  flowSource = 'trend';\n} catch (e) {\n  source = $('Find Manual Keyword Row').first().json;\n  flowSource = 'manual';\n}\nreturn [{\n  json: {\n    id: source.id,\n    keyword: source.keyword,\n    trend_link: source.trend_link || null,\n    source: flowSource\n  }\n}];"
       },
       "id": "320888f0-8aa3-476d-81bd-5e4e1e9bbaf2",
       "name": "Keyword Context",
@@ -1970,6 +2005,28 @@
       ]
     },
     "Insert Manual Keyword": {
+      "main": [
+        [
+          {
+            "node": "Get Manual Keyword Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Manual Keyword Row": {
+      "main": [
+        [
+          {
+            "node": "Find Manual Keyword Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Manual Keyword Row": {
       "main": [
         [
           {

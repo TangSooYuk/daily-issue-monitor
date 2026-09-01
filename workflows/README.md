@@ -1,6 +1,12 @@
 # trends-to-wordpress.n8n.json (v2 — Telegram 승인 + 수동 키워드 + 반복 방지)
 
-## v2.8 — 본문 이미지 스타일링 + Rank Math SEO 필드 실제 채우기 (신규)
+## v2.9 — HTML 엔티티 디코딩 + 수동 `/post`의 id 유실 버그 수정 (신규)
+
+- **`Extract OG Image`**: 뉴스 사이트가 `og:image` 메타태그에 `&amp;` 같은 HTML 엔티티를 이스케이프해서 내려주는 경우가 있는데, 이걸 그대로 다운로드 URL로 쓰면 n8n이 쿼리스트링 파싱에 실패해 "Bad request"가 났습니다 (조선일보 기사에서 실제 재현). 추출 직후 엔티티를 디코딩하도록 고쳤습니다.
+- **`Parse & Split Articles`**: 네이버 뉴스 API가 제목에 `<b>` 강조 태그뿐 아니라 `&quot;` 등 엔티티도 그대로 내려주는데, 태그만 제거하고 있어서 텔레그램/Claude 프롬프트에 깨진 텍스트가 노출되던 것도 같이 고쳤습니다.
+- **수동 `/post` 흐름의 `id` 유실 버그**: `Keyword Context`가 `Insert Manual Keyword`(Supabase insert)의 응답에서 바로 `id`를 읽고 있었는데, 이 응답에 생성된 행의 `id`가 안 들어있는 경우 `undefined`가 되어 `Mark Handled`에서 `invalid input syntax for type bigint: "undefined"` 에러가 났습니다. 자동 트렌드 흐름이 이미 쓰고 있던 것과 동일한 안전장치(insert 후 재조회해서 키워드+날짜로 매칭)를 수동 흐름에도 적용했습니다 — 새 노드 `Get Manual Keyword Row`(Supabase getAll) → `Find Manual Keyword Row`(Code, 매칭)가 `Insert Manual Keyword`와 `Keyword Context` 사이에 들어갑니다.
+
+## v2.8 — 본문 이미지 스타일링 + Rank Math SEO 필드 실제 채우기
 
 워드프레스 포스팅 목록의 Rank Math 컬럼(Keyword: Not Set, Links: 0/0/0)이 전부 비어있던 문제를 고쳤습니다.
 
