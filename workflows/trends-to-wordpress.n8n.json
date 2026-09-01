@@ -1021,7 +1021,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const item = $input.first().json;\nconst html = typeof item === 'string' ? item : (item.data || '');\nconst patterns = [\n  /<meta[^>]+property=[\"']og:image[\"'][^>]*content=[\"']([^\"']+)[\"']/i,\n  /<meta[^>]+content=[\"']([^\"']+)[\"'][^>]*property=[\"']og:image[\"']/i\n];\nlet imageUrl = null;\nfor (const re of patterns) {\n  const m = html.match(re);\n  if (m) { imageUrl = m[1]; break; }\n}\nreturn [{ json: { found: !!imageUrl, imageUrl } }];"
+        "jsCode": "const item = $input.first().json;\nconst html = typeof item === 'string' ? item : (item.data || '');\nconst patterns = [\n  /<meta[^>]+property=[\"']og:image[\"'][^>]*content=[\"']([^\"']+)[\"']/i,\n  /<meta[^>]+content=[\"']([^\"']+)[\"'][^>]*property=[\"']og:image[\"']/i\n];\nlet imageUrl = null;\nfor (const re of patterns) {\n  const m = html.match(re);\n  if (m) { imageUrl = m[1]; break; }\n}\n// News sites frequently emit meta content as HTML-escaped (e.g. '&amp;' between\n// query params), which breaks n8n's query-string parser on the download request.\nif (imageUrl) {\n  imageUrl = imageUrl\n    .replace(/&amp;/g, '&')\n    .replace(/&quot;/g, '\"')\n    .replace(/&#0?39;/g, \"'\")\n    .replace(/&lt;/g, '<')\n    .replace(/&gt;/g, '>');\n}\nreturn [{ json: { found: !!imageUrl, imageUrl } }];"
       },
       "id": "b0000004-0002-4a11-9401-000000000002",
       "name": "Extract OG Image",
