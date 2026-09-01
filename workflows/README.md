@@ -1,6 +1,16 @@
 # trends-to-wordpress.n8n.json (v2 — Telegram 승인 + 수동 키워드 + 반복 방지)
 
-## v2.7 — 대표 이미지는 저작권 안전한 Pexels, 본문 이미지 1장만 뉴스 기사에서 (신규)
+## v2.8 — 본문 이미지 스타일링 + Rank Math SEO 필드 실제 채우기 (신규)
+
+워드프레스 포스팅 목록의 Rank Math 컬럼(Keyword: Not Set, Links: 0/0/0)이 전부 비어있던 문제를 고쳤습니다.
+
+- **본문 이미지 스타일**: `Insert Body Images`가 삽입하는 `<figure>`/`<img>`에 인라인 스타일(`width:100%`, `text-align:center`, `margin:0 auto`)을 추가해서 테마 CSS와 무관하게 항상 너비 100% + 가운데 정렬로 나오도록 고쳤습니다.
+- **Rank Math Focus Keyword / Meta Description 실제 전송**: `Publish WordPress`의 요청 본문에 `meta: { rank_math_focus_keyword, rank_math_description }`를 추가했습니다. Focus Keyword는 `Keyword Context`의 실제 키워드를, Meta Description은 Claude가 이미 생성하고 있었지만 지금까지 아무 데도 전송되지 않고 버려지던 `meta_description` 필드를 그대로 씁니다. **VERIFY IN UI**: 테스트 발행 후 Rank Math에 반영이 안 되면, 워드프레스 관리자 → Rank Math → Titles & Meta에서 REST API 메타 노출 설정을 확인해주세요 (플러그인 버전에 따라 기본값이 다를 수 있음).
+- **외부 링크(Links 컬럼)가 0으로 잡히던 문제**: 그동안 프롬프트가 "뉴스 출처 링크를 자연스럽게 언급해줘"라고만 되어 있어 Claude가 URL을 실제 `<a href>` 태그가 아니라 평문으로 적었을 가능성이 높습니다. 프롬프트를 "반드시 실제 기사 URL을 href 속성에 넣은 진짜 a 태그를 써야 한다"고 명시적으로 바꿨습니다.
+- **참고**: Rank Math의 Schema 컬럼이 "Article (BlogPosting)"으로 고정된 건 정상입니다 — 일반 블로그 글에 맞는 기본 타입이고, "NewsArticle"은 구글 뉴스 등록을 노릴 때만 의미가 있어 지금 단계에서 바꿀 필요는 없습니다.
+- **다음 단계로 고려할 만한 것 (아직 미구현)**: 사이트 내 다른 글로 연결되는 내부 링크는 여전히 없습니다. 구현하려면 발행 전에 같은 카테고리/태그의 기존 글을 워드프레스에서 조회해 Claude에게 후보로 제공하는 단계가 추가로 필요합니다 — 원하시면 다음에 추가해드릴 수 있습니다.
+
+## v2.7 — 대표 이미지는 저작권 안전한 Pexels, 본문 이미지 1장만 뉴스 기사에서
 
 저작권 리스크를 줄이기 위해 이미지 소스를 재배치했습니다: **가장 눈에 띄는 대표 이미지(목록/공유 시 노출)는 항상 Pexels 스톡 사진**을 쓰고, **뉴스 기사 원문 사진은 본문 이미지 2장 중 1장에만**, 그것도 실패 시 Pexels로 자연스럽게 대체되도록 배치했습니다.
 
