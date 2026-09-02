@@ -1705,7 +1705,13 @@
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ name: $json.name }) }}",
-        "options": {}
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
       },
       "id": "66fc6663-a205-4815-b77c-e6675b9ff21b",
       "name": "Create WP Tag",
@@ -1721,7 +1727,21 @@
           "name": "Gabia"
         }
       },
-      "notes": "Runs once per missing tag (one item per tag from Resolve Tag IDs), creating each new tag in WordPress."
+      "notes": "Runs once per missing tag (one item per tag from Resolve Tag IDs), creating each new tag in WordPress. neverError=true so a 400 term_exists response (tag actually already existed, just outside Get All WP Tags' first 100 results) lands here as normal data instead of failing the node -- Normalize Created Tag ID picks the existing term's id back out of that error body."
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst id = item.id || (item.data && item.data.term_id) || null;\nreturn [{ json: { id } }];"
+      },
+      "id": "e2000001-0001-4a11-9f01-000000000001",
+      "name": "Normalize Created Tag ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -5920,
+        -272
+      ],
+      "notes": "Create WP Tag has neverError=true, so a term_exists conflict (tag already existed beyond Get All WP Tags' first 100) lands here as {code:'term_exists', data:{term_id}} instead of a thrown error. Reads the tag's real id from whichever shape actually came back (fresh creation vs term_exists conflict) so Aggregate Tag IDs downstream keeps working unmodified."
     },
     {
       "parameters": {
@@ -2736,6 +2756,17 @@
       ]
     },
     "Create WP Tag": {
+      "main": [
+        [
+          {
+            "node": "Normalize Created Tag ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Created Tag ID": {
       "main": [
         [
           {
