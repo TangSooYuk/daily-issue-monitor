@@ -1005,7 +1005,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ model: \"claude-sonnet-5\", max_tokens: 4096, tools: [{ name: \"blog_draft\", description: \"워드프레스에 바로 등록 가능한 블로그 초안 생성\", input_schema: { type: \"object\", properties: { title: { type: \"string\" }, body_html: { type: \"string\" }, excerpt: { type: \"string\" }, tags: { type: \"array\", items: { type: \"string\" } }, category: { type: \"string\", enum: [\"정치\", \"경제\", \"사회\", \"생활/문화\", \"IT/과학\", \"연예\", \"스포츠\", \"국제\", \"기타\"] }, meta_description: { type: \"string\" }, body_image_keywords: { type: \"array\", items: { type: \"string\" }, minItems: 2, maxItems: 2 } }, required: [\"title\", \"body_html\", \"excerpt\", \"tags\", \"category\", \"meta_description\", \"body_image_keywords\"] } }], tool_choice: { type: \"tool\", name: \"blog_draft\" }, messages: [{ role: \"user\", content: (() => { const base = `지금 화제인 키워드: ${$('Build News Summary').first().json.keyword}\\n\\n관련 뉴스:\\n${$('Build News Summary').first().json.news_list}\\n\\nGoogle Trends 원본 링크: ${$('Build News Summary').first().json.trend_link}\\n\\n위 내용을 참고해서 이 키워드를 자연스럽게 다루는 한국어 블로그 글을 작성해줘.\\n\\n작성 지침:\\n- 도입부는 '~가 화제인 이유는', '~에 대해 알아보겠습니다' 같은 상투적이고 AI스러운 문장으로 시작하지 마. 매번 다른 각도로 -- 최근 반응, 지금 분위기, 사람들이 주목하는 포인트 등 -- 자연스럽게 짚으면서 이 키워드로 시작해줘. 매 포스팅마다 도입부 스타일을 다르게 해줘.\\n- body_html 끝부분은 부가 설명이 아니라 글의 흐름을 자연스럽게 마무리하는 문단으로 끝내고, 참고한 뉴스 출처를 그 안에서 실제 하이퍼링크로 인용해줘 -- 반드시 실제 기사 URL을 href 속성 값으로 넣은 진짜 a 태그(예: 여는 태그는 a href=\\\"기사URL\\\", 링크 텍스트는 매체명이나 기사 제목, 닫는 태그는 /a)를 써야 해. URL을 그냥 평문으로 적거나 링크 없이 언급만 하면 안 돼. 참고한 기사가 여러 개면 관련 있는 곳마다 나눠서 인용해도 좋아.\\n- excerpt는 워드프레스 발췌문(글 목록/공유 시 노출)으로 쓸 1~2문장짜리 짧고 흥미로운 요약을 작성해줘.\\n- meta_description은 본문에는 노출되지 않는 검색엔진용 요약(150자 내외)으로 따로 작성해줘. excerpt와는 톤이 달라도 돼.\\n- category는 정치/경제/사회/생활문화/IT과학/연예/스포츠/국제/기타 중 이 포스팅에 가장 맞는 하나로 골라줘.\\n- 아래는 SEO 체크리스트야, 반드시 다 지켜줘:\\n  1) title에 이 포스팅의 키워드(${$('Build News Summary').first().json.keyword})를 그대로, 반드시 포함시켜줘 (이 title은 URL과 이미지 대체텍스트에도 그대로 재사용되니 절대 빠뜨리면 안 돼).\\n  2) meta_description에도 이 키워드를 그대로 포함시켜줘.\\n  3) body_html 전체 분량 중 앞부분 10% 이내(즉 첫 문단 근처)에 이 키워드가 최소 한 번 자연스럽게 등장하게 해줘 (도입부 문체는 기존 지침대로 매번 다르게 하되, 키워드 언급 자체는 빠뜨리지 마).\\n  4) body_html 전체에서 이 키워드가 최소 2~3회 이상 자연스럽게 반복 등장하게 해줘 (억지로 욱여넣지 말고 문맥에 맞게).\\n  5) body_html 안의 소제목(<h2> 태그) 중 최소 하나에는 이 키워드를 포함시켜줘.\\n  6) body_html은 최소 600단어 분량(한국어 기준 공백 제외 약 1500자, 공백 포함 약 2000자 이상) 이상으로 충분히 길게 작성해줘 — 너무 짧게 끝내지 마.\\n- body_image_keywords는 본문 중간에 삽입할 사진 2장을 무료 스톡 사진 사이트(Pexels)에서 검색할 때 쓸 영어 키워드 배열이야. 반드시 정확히 2개를 만들어줘, 각각 2~4단어. 이 글이 다루는 서로 다른 두 장면/측면을 표현해줘 (두 이미지가 같은 내용이면 안 됨 -- 예: 하나는 인물/상황, 다른 하나는 배경/장소). 카테고리 수준의 뭉뚱그린 단어 말고 이 기사의 구체적인 소재를 반영해줘. 단, Pexels는 실존 인물 이름이나 한국 고유명사로는 검색이 안 되니, 그런 경우 그 인물/사안이 속한 상황을 묘사하는 일반적인 영어 단어로 바꿔서 표현해줘 (예: '손흥민 부상' -> 'soccer player injury field', '비트코인 급등' -> 'cryptocurrency finance chart growth').\\n- body_html 안에는 <img> 태그나 '[사진: ...]', '(이미지: ...)' 같은 이미지 자리표시·캡션을 절대 넣지 마. 대표 이미지와 본문 이미지 모두 이 워크플로우가 별도로 자동 삽입하니, 본문은 순수 텍스트(문단과 필요한 경우 소제목 정도)로만 작성해줘.\\n- 절대 뉴스 기사를 단순히 요약만 하지 마. 이 사안이 왜 지금 화제인지에 대한 배경, 앞으로 어떻게 흘러갈지에 대한 전망, 비슷한 과거 사례와의 비교, 이게 독자에게 왜 중요한지 같은 너만의 관점과 분석을 최소 한두 문단 이상 담아줘. 기사 내용을 재배열한 것처럼 읽히면 안 되고, 읽고 나서 뭔가 새로운 통찰을 얻었다는 느낌이 들어야 해.`; const comment = $('Evaluate News Review').first().json.comment; return comment ? base + `\\n\\n[검토자 코멘트]\\n${comment}\\n위 코멘트 내용을 최대한 반영해서 작성해줘.` : base; })() }] }) }}",
+        "jsonBody": "={{ JSON.stringify({ model: \"claude-sonnet-5\", max_tokens: 4096, tools: [{ name: \"blog_draft\", description: \"워드프레스에 바로 등록 가능한 블로그 초안 생성\", input_schema: { type: \"object\", properties: { title: { type: \"string\" }, body_html: { type: \"string\" }, excerpt: { type: \"string\" }, tags: { type: \"array\", items: { type: \"string\" } }, category: { type: \"string\", enum: [\"정치\", \"경제\", \"사회\", \"생활/문화\", \"IT/과학\", \"연예\", \"스포츠\", \"국제\", \"기타\", \"본방사수\"] }, meta_description: { type: \"string\" }, body_image_keywords: { type: \"array\", items: { type: \"string\" }, minItems: 2, maxItems: 2 } }, required: [\"title\", \"body_html\", \"excerpt\", \"tags\", \"category\", \"meta_description\", \"body_image_keywords\"] } }], tool_choice: { type: \"tool\", name: \"blog_draft\" }, messages: [{ role: \"user\", content: (() => { const structure = $('Pick Post Structure Variant').first().json; const base = `지금 화제인 키워드: ${$('Build News Summary').first().json.keyword}\\n\\n관련 뉴스:\\n${$('Build News Summary').first().json.news_list}\\n\\nGoogle Trends 원본 링크: ${$('Build News Summary').first().json.trend_link}\\n\\n위 내용을 참고해서 이 키워드를 자연스럽게 다루는 한국어 블로그 글을 작성해줘.\\n\\n작성 지침:\\n- 이번 글의 도입부는 반드시 다음 방식을 따라야 해: ${structure.introDirective}. '~가 화제인 이유는', '~에 대해 알아보겠습니다' 같은 상투적이고 AI스러운 문장으로는 절대 시작하지 마.\\n- body_html의 마무리 문단은 아래 마무리 스타일 중 이 글 내용과 가장 잘 어울리는 하나를 골라서 그 방식으로 써:\\n  1) 전망/예측형 -- 사건이 아직 진행 중이거나 결론이 안 났을 때\\n  2) 질문형 -- 의견이 갈리는 논쟁적 사안일 때\\n  3) 실용 조언형 -- 독자가 실제로 참고하거나 행동할 수 있는 사안일 때\\n  4) 여운형 -- 감정적이거나 인간적인 이야기일 때\\n  5) 재조명형 -- 사회적 파급력이 크거나 의미 있는 사안일 때\\n  6) 아이러니형 -- 풍자적이거나 역설적인 지점이 있는 사안일 때\\n  '관전 포인트는', '지켜봐야 할 대목이다', '귀추가 주목된다' 같은 상투적 문구는 쓰지 말고, 고른 스타일에 맞게 너만의 관점을 담아 자연스럽게 마무리해.\\n- 뉴스 출처 인용은 마무리 문단이 아니라 본문 중 관련 있는 곳 아무 데나 자연스럽게 배치해 -- 반드시 실제 기사 URL을 href 속성 값으로 넣은 진짜 a 태그(예: 여는 태그는 a href=\\\"기사URL\\\", 링크 텍스트는 매체명이나 기사 제목, 닫는 태그는 /a)를 써야 해. URL을 그냥 평문으로 적거나 링크 없이 언급만 하면 안 돼. 참고한 기사가 여러 개면 관련 있는 곳마다 나눠서 인용해도 좋아.\\n- 과거 사례나 비슷한 사건과의 비교는 ${structure.retroDirective}.\\n- excerpt는 워드프레스 발췌문(글 목록/공유 시 노출)으로 쓸 1~2문장짜리 짧고 흥미로운 요약을 작성해줘.\\n- meta_description은 본문에는 노출되지 않는 검색엔진용 요약(150자 내외)으로 따로 작성해줘. excerpt와는 톤이 달라도 돼.\\n- category는 정치/경제/사회/생활문화/IT과학/연예/스포츠/국제/기타/본방사수 중 이 포스팅에 가장 맞는 하나로 골라줘. TV 프로그램 방영분·재방송 시청 후기나 실시간 방송 반응처럼 '본방송을 챙겨보는' 성격의 콘텐츠라면 본방사수를 선택해줘.\\n- 소제목(<h2> 태그)은 매번 같은 형식('~란?', '~정리' 등) 대신 이번 글마다 다른 톤(질문형, 요약형, 임팩트형 등)으로 만들어줘.\\n- 아래는 SEO 체크리스트야, 반드시 다 지켜줘:\\n  1) title에 이 포스팅의 키워드(${$('Build News Summary').first().json.keyword})를 그대로, 반드시 포함시켜줘 (이 title은 URL과 이미지 대체텍스트에도 그대로 재사용되니 절대 빠뜨리면 안 돼).\\n  2) meta_description에도 이 키워드를 그대로 포함시켜줘.\\n  3) body_html 전체 분량 중 앞부분 10% 이내(즉 첫 문단 근처)에 이 키워드가 최소 한 번 자연스럽게 등장하게 해줘 (도입부 문체는 위 지침대로 하되, 키워드 언급 자체는 빠뜨리지 마).\\n  4) body_html 전체에서 이 키워드가 최소 2~3회 이상 자연스럽게 반복 등장하게 해줘 (억지로 욱여넣지 말고 문맥에 맞게).\\n  5) body_html 안의 소제목(<h2> 태그) 중 최소 하나에는 이 키워드를 포함시켜줘.\\n  6) body_html은 최소 600단어 분량(한국어 기준 공백 제외 약 1500자, 공백 포함 약 2000자 이상) 이상으로 충분히 길게 작성해줘 — 너무 짧게 끝내지 마.\\n- body_image_keywords는 본문 중간에 삽입할 사진 2장을 무료 스톡 사진 사이트(Pexels)에서 검색할 때 쓸 영어 키워드 배열이야. 반드시 정확히 2개를 만들어줘, 각각 2~4단어. 이 글이 다루는 서로 다른 두 장면/측면을 표현해줘 (두 이미지가 같은 내용이면 안 됨 -- 예: 하나는 인물/상황, 다른 하나는 배경/장소). 카테고리 수준의 뭉뚱그린 단어 말고 이 기사의 구체적인 소재를 반영해줘. 단, Pexels는 실존 인물 이름이나 한국 고유명사로는 검색이 안 되니, 그런 경우 그 인물/사안이 속한 상황을 묘사하는 일반적인 영어 단어로 바꿔서 표현해줘 (예: '손흥민 부상' -> 'soccer player injury field', '비트코인 급등' -> 'cryptocurrency finance chart growth').\\n- body_html 안에는 <img> 태그나 '[사진: ...]', '(이미지: ...)' 같은 이미지 자리표시·캡션을 절대 넣지 마. 대표 이미지와 본문 이미지 모두 이 워크플로우가 별도로 자동 삽입하니, 본문은 순수 텍스트(문단과 필요한 경우 소제목 정도)로만 작성해줘.\\n- 절대 뉴스 기사를 단순히 요약만 하지 마. 이 사안이 왜 지금 화제인지에 대한 배경, 앞으로 어떻게 흘러갈지에 대한 전망, 비슷한 과거 사례와의 비교, 이게 독자에게 왜 중요한지 같은 너만의 관점과 분석을 본문의 절반 가까운 분량으로 담아줘. 기사 내용을 재배열한 것처럼 읽히면 안 되고, 읽고 나서 뭔가 새로운 통찰을 얻었다는 느낌이 들어야 해.`; const comment = $('Evaluate News Review').first().json.comment; return comment ? base + `\\n\\n[검토자 코멘트]\\n${comment}\\n위 코멘트 내용을 최대한 반영해서 작성해줘.` : base; })() }] }) }}",
         "options": {}
       },
       "id": "8fd2a2e7-df10-4ea6-9cb2-400dd4474e5f",
@@ -1794,7 +1794,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ title: $('Parse Claude Response').first().json.title, content: $('Insert Body Images').first().json.body_html, excerpt: $('Parse Claude Response').first().json.excerpt, status: \"draft\", categories: [(() => { const norm = $('Normalize Category Search').first().json; if (norm.found) return norm.id; try { return $('Create WP Category').first().json.id; } catch (e) { return null; } })()], tags: $('Finalize Tag IDs').first().json.tag_ids, featured_media: $('Finalize Featured Media').first().json.featured_media, meta: { rank_math_focus_keyword: $('Keyword Context').first().json.keyword, rank_math_description: $('Parse Claude Response').first().json.meta_description } }) }}",
+        "jsonBody": "={{ JSON.stringify({ title: $('Parse Claude Response').first().json.title, content: $('Insert Body Images').first().json.body_html, excerpt: $('Parse Claude Response').first().json.excerpt, status: \"draft\", author: $('Pick Author By Category').first().json.author_id, categories: [(() => { const norm = $('Normalize Category Search').first().json; if (norm.found) return norm.id; try { return $('Create WP Category').first().json.id; } catch (e) { return null; } })()], tags: $('Finalize Tag IDs').first().json.tag_ids, featured_media: $('Finalize Featured Media').first().json.featured_media, meta: { rank_math_focus_keyword: $('Keyword Context').first().json.keyword, rank_math_description: $('Parse Claude Response').first().json.meta_description } }) }}",
         "options": {}
       },
       "id": "2339ad60-e83d-419f-92fa-61aaac56b0c8",
@@ -1893,6 +1893,148 @@
       "id": "c6f43bdf-4d3e-473e-8364-d32c404c4011",
       "name": "Send a text message1",
       "webhookId": "4bb332b6-d8a2-4e37-93d5-9519fc0335d9",
+      "credentials": {
+        "telegramApi": {
+          "id": "7oxTl9ZzFfqBvEU2",
+          "name": "Telegram Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first();\nconst b64 = (item.binary && item.binary.data && item.binary.data.data) || '';\n// Base64 length -> byte size approximation (ignores 1-2 byte padding, irrelevant at this threshold).\nconst bytes = Math.floor(b64.length * 3 / 4);\nconst MAX_BYTES = 1500 * 1024; // Gabia hosting's upload cap -- 'Bad request: 파일의 크기는 1500 KB 이하여야만 합니다'\nreturn [{ json: { ...item.json, tooLarge: bytes > MAX_BYTES, sizeBytes: bytes }, binary: item.binary }];"
+      },
+      "id": "f2000001-0001-4a11-9f01-000000000001",
+      "name": "Check Featured Image Size",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-8160, -80],
+      "notes": "Gabia's WordPress media upload rejects anything over 1500KB. Pexels' 'large2x' size usually fits, but this guards against the rare oversized photo -- too-large routes to Finalize Featured Media same as IF Image Found's false branch (no featured image, featured_media=0), never blocks publishing."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 1 },
+          "conditions": [
+            { "leftValue": "={{ $json.tooLarge }}", "rightValue": true, "operator": { "type": "boolean", "operation": "equals" } }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "f2000001-0002-4a11-9f01-000000000002",
+      "name": "IF Featured Image Too Large",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [-8048, -80]
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first();\nconst b64 = (item.binary && item.binary.data && item.binary.data.data) || '';\nconst bytes = Math.floor(b64.length * 3 / 4);\nconst MAX_BYTES = 1500 * 1024; // Gabia hosting's upload cap\nreturn [{ json: { ...item.json, tooLarge: bytes > MAX_BYTES, sizeBytes: bytes }, binary: item.binary }];"
+      },
+      "id": "f2000002-0001-4a11-9f02-000000000001",
+      "name": "Check Body Image 1 Size",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-6816, 440],
+      "notes": "News article photos (unlike Pexels) are frequently well over Gabia's 1500KB upload cap -- this is what actually failed in testing (a 1.95MB article photo). Too-large routes to Search Pexels Image B2, the exact same fallback IF Image Found B1's false branch already uses for 'no og:image found' -- never blocks publishing."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 1 },
+          "conditions": [
+            { "leftValue": "={{ $json.tooLarge }}", "rightValue": true, "operator": { "type": "boolean", "operation": "equals" } }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "f2000002-0002-4a11-9f02-000000000002",
+      "name": "IF Body Image 1 Too Large",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [-6704, 440]
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first();\nconst b64 = (item.binary && item.binary.data && item.binary.data.data) || '';\nconst bytes = Math.floor(b64.length * 3 / 4);\nconst MAX_BYTES = 1500 * 1024; // Gabia hosting's upload cap\nreturn [{ json: { ...item.json, tooLarge: bytes > MAX_BYTES, sizeBytes: bytes }, binary: item.binary }];"
+      },
+      "id": "f2000003-0001-4a11-9f03-000000000001",
+      "name": "Check Body Image 2 Size",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-5696, 440],
+      "notes": "Same 1500KB Gabia cap check as Body Image 1/Featured Image. Too-large routes to Insert Body Images, same as IF Image Found B2's false branch (skip this image), never blocks publishing."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 1 },
+          "conditions": [
+            { "leftValue": "={{ $json.tooLarge }}", "rightValue": true, "operator": { "type": "boolean", "operation": "equals" } }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "f2000003-0002-4a11-9f03-000000000002",
+      "name": "IF Body Image 2 Too Large",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [-5584, 440]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Picks a CONCRETE intro style+phrasing directive (not an abstract 'be different'\n// instruction, which an audit found Claude ignores in practice -- every post converged\n// on the same 'everyday scene -> topic' opening). 6 styles x 5 phrasings = 30 combos.\nconst INTRO_STYLES = [\n  { style: '질문형', patterns: [\n    '혹시 이런 경험 있으신가요, 하는 질문으로 시작',\n    '만약 ~라면 어땠을까 하는 가정형 질문으로 시작',\n    '다들 한 번쯤 궁금했을 질문을 던지며 시작',\n    '왜 하필 지금 이 얘기가 나왔을까 하는 물음으로 시작',\n    '단도직입적으로 묻는 짧은 질문 한 문장으로 시작'\n  ]},\n  { style: '통계·숫자 제시형', patterns: [\n    '핵심 수치 하나를 툭 던지듯 제시하며 시작',\n    '비교 가능한 두 숫자를 나란히 놓으며 시작',\n    '숫자보다 그 숫자가 주는 체감을 먼저 언급하며 시작',\n    '통계가 나온 시점을 구체적으로 짚으며 시작',\n    '숫자의 변화 폭(몇 배, 몇 퍼센트)을 강조하며 시작'\n  ]},\n  { style: '현장 묘사형', patterns: [\n    '구체적 장소와 시간대를 그리듯 묘사하며 시작',\n    '누군가의 반응이나 표정을 스케치하듯 시작',\n    '소리나 분위기 같은 감각적 디테일로 시작',\n    '평범한 일상 속 한 장면을 짧게 그리며 시작',\n    '현장의 기대와 실제 반응의 온도차를 대비시키며 시작'\n  ]},\n  { style: '인용구 시작형', patterns: [\n    '관계자나 당사자의 발언을 그대로 인용하며 시작',\n    '온라인 반응(댓글, SNS 반응 등)을 인용하며 시작',\n    '짧고 임팩트 있는 한 문장 인용으로 시작',\n    '상반된 두 반응/발언을 나란히 인용하며 시작',\n    '질문 형태의 발언을 인용하며 시작'\n  ]},\n  { style: '반전·역설형', patterns: [\n    '예상과 다른 결과를 먼저 제시하며 시작',\n    '통념을 뒤집는 문장으로 시작',\n    '아이러니한 상황을 짚으며 시작',\n    \"'그런데'로 흐름을 반전시키는 문장으로 시작\",\n    '기대와 현실의 간극을 짚으며 시작'\n  ]},\n  { style: '구어체·직설형', patterns: [\n    '군더더기 없이 사실을 바로 던지며 시작',\n    '짧고 단정적인 문장으로 시작',\n    '독자에게 말 걸듯 편하게 시작',\n    '짧은 감탄이나 반응으로 시작',\n    '결론부터 먼저 말하고 이유를 뒤에 붙이는 방식으로 시작'\n  ]}\n];\nconst chosenStyle = INTRO_STYLES[Math.floor(Math.random() * INTRO_STYLES.length)];\nconst introDirective = `[${chosenStyle.style}] ${chosenStyle.patterns[Math.floor(Math.random() * chosenStyle.patterns.length)]}`;\n\n// Whether/where a 'past precedent comparison' paragraph appears -- previously this showed\n// up in nearly every post at the same spot (second-to-last paragraph). Now it's a coin\n// flip, and when included the position is randomized too.\nconst retroDirective = Math.random() < 0.5\n  ? `본문 ${['초반', '중반', '후반'][Math.floor(Math.random() * 3)]}부에 한 문단 정도 자연스럽게 넣어줘`\n  : '이번 글에는 넣지 말고, 대신 다른 각도의 분석으로 채워줘';\n\nreturn [{ json: { introDirective, retroDirective } }];"
+      },
+      "id": "f3000001-0001-4a11-9301-000000000001",
+      "name": "Pick Post Structure Variant",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-10736, 200],
+      "notes": "Runs in parallel off Build News Summary (not in the direct chain to News Review Attempt) -- Claude Draft references it by name ($('Pick Post Structure Variant')), same as it already does for Build News Summary/Evaluate News Review, so its position off the main line doesn't matter."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Fixed category -> pen-name mapping (like real news desks) so bylines vary across\n// posts instead of every post showing the same single WordPress account name.\nconst category = $('Parse Claude Response').first().json.category;\nconst AUTHORS = {\n  '정치': { nickname: '이슈랩', id: 2 },\n  '사회': { nickname: '이슈랩', id: 2 },\n  '기타': { nickname: '이슈랩', id: 2 },\n  '경제': { nickname: '데일리스코프', id: 3 },\n  '국제': { nickname: '데일리스코프', id: 3 },\n  'IT/과학': { nickname: '트렌드노트', id: 4 },\n  '생활/문화': { nickname: '트렌드노트', id: 4 },\n  '연예': { nickname: '컬처메이커', id: 5 },\n  '스포츠': { nickname: '필드리포트', id: 6 },\n  '본방사수': { nickname: '방구석리뷰', id: 7 }\n};\n// If Claude ever returns a category not in this table (e.g. the tool schema's enum\n// gets a new value added here without also adding it below), don't silently misattribute\n// the post forever -- fall back to 기타/이슈랩 so publishing never breaks, but flag it via\n// is_unmapped so IF Category Unmapped can alert on Telegram and someone adds the real entry.\nconst picked = AUTHORS[category];\nconst fallback = picked || AUTHORS['기타'];\nreturn [{ json: { author_nickname: fallback.nickname, author_id: fallback.id, category, is_unmapped: !picked } }];"
+      },
+      "id": "f3000002-0001-4a11-9302-000000000001",
+      "name": "Pick Author By Category",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-9168, 100],
+      "notes": "The publishing credential (Gabia) stays the same -- it just needs Editor/Administrator role (edit_others_posts capability) to set the 'author' field to a different user, which it already has since it creates categories/tags."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 1 },
+          "conditions": [
+            { "leftValue": "={{ $json.is_unmapped }}", "rightValue": true, "operator": { "type": "boolean", "operation": "equals" } }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "f3000003-0001-4a11-9303-000000000001",
+      "name": "IF Category Unmapped",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [-8944, 100],
+      "notes": "true -> a category came back from Claude that isn't in Pick Author By Category's AUTHORS table. The post still publishes fine (under the 기타/이슈랩 fallback), this is just a heads-up to add a real mapping."
+    },
+    {
+      "parameters": {
+        "chatId": "624361524",
+        "text": "=⚠️ 새 카테고리 감지: {{ $json.category }} -- 매핑이 없어 임시로 {{ $json.author_nickname }} 계정으로 발행됩니다. 'Pick Author By Category' 노드에 이 카테고리용 실제 필명/계정을 추가해주세요.",
+        "additionalFields": {}
+      },
+      "id": "f3000003-0002-4a11-9303-000000000002",
+      "name": "Telegram: Unmapped Category Alert",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [-8720, 200],
       "credentials": {
         "telegramApi": {
           "id": "7oxTl9ZzFfqBvEU2",
@@ -2284,6 +2426,11 @@
             "node": "News Review Attempt",
             "type": "main",
             "index": 0
+          },
+          {
+            "node": "Pick Post Structure Variant",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -2397,8 +2544,36 @@
             "node": "Search Pexels Image",
             "type": "main",
             "index": 0
+          },
+          {
+            "node": "Pick Author By Category",
+            "type": "main",
+            "index": 0
           }
         ]
+      ]
+    },
+    "Pick Author By Category": {
+      "main": [
+        [
+          {
+            "node": "IF Category Unmapped",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Category Unmapped": {
+      "main": [
+        [
+          {
+            "node": "Telegram: Unmapped Category Alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
       ]
     },
     "Fetch First Article Page": {
@@ -2485,6 +2660,35 @@
       "main": [
         [
           {
+            "node": "Check Featured Image Size",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Featured Image Size": {
+      "main": [
+        [
+          {
+            "node": "IF Featured Image Too Large",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Featured Image Too Large": {
+      "main": [
+        [
+          {
+            "node": "Finalize Featured Media",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
             "node": "Upload Featured Image to WordPress",
             "type": "main",
             "index": 0
@@ -2563,6 +2767,35 @@
       "main": [
         [
           {
+            "node": "Check Body Image 1 Size",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Body Image 1 Size": {
+      "main": [
+        [
+          {
+            "node": "IF Body Image 1 Too Large",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Body Image 1 Too Large": {
+      "main": [
+        [
+          {
+            "node": "Search Pexels Image B2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
             "node": "Upload Body Image 1",
             "type": "main",
             "index": 0
@@ -2628,6 +2861,35 @@
     },
     "Download Body Image 2": {
       "main": [
+        [
+          {
+            "node": "Check Body Image 2 Size",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Body Image 2 Size": {
+      "main": [
+        [
+          {
+            "node": "IF Body Image 2 Too Large",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Body Image 2 Too Large": {
+      "main": [
+        [
+          {
+            "node": "Insert Body Images",
+            "type": "main",
+            "index": 0
+          }
+        ],
         [
           {
             "node": "Upload Body Image 2",
